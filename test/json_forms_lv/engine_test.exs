@@ -26,4 +26,27 @@ defmodule JsonFormsLV.EngineTest do
     assert {:error, {:invalid_path, "items.5.name"}} =
              Engine.update_data(state, "items.5.name", "x", %{})
   end
+
+  test "touch_all marks submitted and touched" do
+    {:ok, state} = Engine.init(%{}, %{}, %{"name" => "Ada"}, %{})
+
+    {:ok, state} = Engine.touch_all(state)
+
+    assert state.submitted == true
+    assert MapSet.member?(state.touched, "name")
+  end
+
+  test "invalid numeric coercion preserves raw input" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{"age" => %{"type" => "integer"}}
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, %{"age" => 1}, %{})
+
+    {:ok, state} = Engine.update_data(state, "age", "abc", %{})
+
+    assert state.data == %{"age" => 1}
+    assert state.raw_inputs["age"] == "abc"
+  end
 end

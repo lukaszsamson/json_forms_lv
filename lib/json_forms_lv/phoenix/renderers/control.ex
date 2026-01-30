@@ -5,7 +5,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
 
   use Phoenix.Component
 
-  alias JsonFormsLV.Dispatch
+  alias JsonFormsLV.{Dispatch, I18n}
 
   @behaviour JsonFormsLV.Renderer
 
@@ -75,7 +75,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
         <%= if @show_errors? and @errors_for_control != [] do %>
           <ul class="jf-errors">
             <%= for error <- @errors_for_control do %>
-              <li>{error.message}</li>
+              <li>{I18n.translate_error(error, @i18n, @ctx)}</li>
             <% end %>
           </ul>
         <% end %>

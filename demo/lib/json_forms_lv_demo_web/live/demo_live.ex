@@ -19,6 +19,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       |> assign(:uischema, uischema)
       |> assign(:state, state)
       |> assign(:data, state.data)
+      |> assign(:form, to_form(%{}, as: :jf))
       |> assign(:current_scope, nil)
 
     {:ok, socket}
@@ -52,6 +53,11 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     end
   end
 
+  def handle_event("jf:submit", _params, socket) do
+    {:ok, state} = Engine.touch_all(socket.assigns.state)
+    {:noreply, assign(socket, state: state)}
+  end
+
   def handle_event(_event, _params, socket), do: {:noreply, socket}
 
   @impl true
@@ -65,19 +71,53 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         </div>
 
         <div class="space-y-4">
-          <.json_forms
-            id="demo-json-forms"
-            schema={@schema}
-            uischema={@uischema}
-            data={@data}
-            state={@state}
-          />
+          <.form for={@form} id="demo-json-forms-form" phx-submit="jf:submit">
+            <.json_forms
+              id="demo-json-forms"
+              schema={@schema}
+              uischema={@uischema}
+              data={@data}
+              state={@state}
+              wrap_form={false}
+            />
+
+            <button
+              id="demo-json-forms-submit"
+              type="submit"
+              class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Submit
+            </button>
+          </.form>
         </div>
+
+        <%= if @state.submitted do %>
+          <div class="space-y-2">
+            <p id="demo-submit-status" class="text-sm font-semibold text-zinc-800">
+              Submitted
+            </p>
+
+            <%= if @state.errors != [] do %>
+              <ul id="demo-submit-errors" class="jf-errors text-sm text-red-600">
+                <%= for error <- @state.errors do %>
+                  <li>{error.message}</li>
+                <% end %>
+              </ul>
+            <% end %>
+          </div>
+        <% end %>
 
         <div class="space-y-2">
           <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">Data</h2>
           <pre id="debug-data" class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto">
             {Jason.encode!(@data, pretty: true)}
+          </pre>
+        </div>
+
+        <div class="space-y-2">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">Errors</h2>
+          <pre id="debug-errors" class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto">
+            {Jason.encode!(Enum.map(@state.errors, &Map.from_struct/1), pretty: true)}
           </pre>
         </div>
       </section>
@@ -88,9 +128,15 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   defp demo_schema do
     %{
       "type" => "object",
+      "required" => ["name"],
       "properties" => %{
-        "name" => %{"type" => "string", "title" => "Name"},
-        "age" => %{"type" => "integer", "title" => "Age"},
+        "name" => %{
+          "type" => "string",
+          "title" => "Name",
+          "minLength" => 1,
+          "description" => "Required"
+        },
+        "age" => %{"type" => "integer", "title" => "Age", "minimum" => 0},
         "subscribed" => %{"type" => "boolean", "title" => "Subscribed"}
       }
     }

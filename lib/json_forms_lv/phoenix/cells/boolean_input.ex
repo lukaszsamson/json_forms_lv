@@ -27,7 +27,9 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
       type="checkbox"
       checked={@checked?}
       disabled={@disabled?}
-      phx-change={JS.push(@on_change, value: %{path: @path}, target: @target)}
+      phx-change={
+        JS.push(@on_change, value: %{path: @path, meta: %{touch: true}}, target: @target)
+      }
       phx-blur={JS.push(@on_blur, value: %{path: @path, meta: %{touch: true}}, target: @target)}
     />
     """

@@ -94,8 +94,8 @@ defmodule JsonFormsLV.Errors do
 
   defp flatten_jsv_error(unit, acc) when is_map(unit) do
     errors = Map.get(unit, "errors", [])
-    instance_path = Map.get(unit, "instanceLocation", "")
-    schema_path = Map.get(unit, "schemaLocation")
+    instance_path = normalize_jsv_path(Map.get(unit, "instanceLocation", ""))
+    schema_path = normalize_jsv_path(Map.get(unit, "schemaLocation"))
 
     acc =
       Enum.reduce(errors, acc, fn error, acc ->
@@ -127,6 +127,19 @@ defmodule JsonFormsLV.Errors do
   end
 
   defp flatten_jsv_error(_unit, acc), do: acc
+
+  defp normalize_jsv_path(nil), do: nil
+  defp normalize_jsv_path("#"), do: ""
+
+  defp normalize_jsv_path(path) when is_binary(path) do
+    path = String.trim_leading(path, "#")
+
+    cond do
+      path == "" -> ""
+      String.starts_with?(path, "/") -> path
+      true -> "/" <> path
+    end
+  end
 
   defp dedupe(errors) do
     {result, _seen} =

@@ -24,6 +24,7 @@ defmodule JsonFormsLV.ErrorsTest do
     }
 
     assert Errors.errors_for_control(state, "name") == []
+    refute Errors.show_validator_errors?(state, "name")
 
     state = %State{state | touched: MapSet.new(["name"])}
     assert length(Errors.errors_for_control(state, "name")) == 1
@@ -36,6 +37,20 @@ defmodule JsonFormsLV.ErrorsTest do
       validation_mode: :no_validation,
       touched: MapSet.new(),
       submitted: false,
+      errors: [error],
+      opts: %{}
+    }
+
+    assert length(Errors.errors_for_control(state, "name")) == 1
+  end
+
+  test "submitted shows validator errors" do
+    error = %Error{instance_path: "/name", message: "Invalid", source: :validator}
+
+    state = %State{
+      validation_mode: :validate_and_show,
+      touched: MapSet.new(),
+      submitted: true,
       errors: [error],
       opts: %{}
     }

@@ -170,7 +170,14 @@ defmodule JsonFormsLV.Phoenix.Components do
 
     {path, schema} = resolve_path_and_schema(assigns, state)
     instance_path = Path.data_path_to_instance_path(path)
-    value = data_value(state.data, path)
+    raw_input = Map.get(state.raw_inputs || %{}, path, :no_raw)
+
+    value =
+      case raw_input do
+        :no_raw -> data_value(state.data, path)
+        _ -> raw_input
+      end
+
     visible? = assigns.parent_visible?
     enabled? = assigns.parent_enabled? && !state.readonly
 
@@ -189,7 +196,9 @@ defmodule JsonFormsLV.Phoenix.Components do
         instance_path: instance_path,
         config: config,
         i18n: state.i18n,
-        readonly: state.readonly
+        readonly: state.readonly,
+        translate:
+          Map.get(state.i18n || %{}, :translate) || Map.get(state.i18n || %{}, "translate")
       })
 
     id = dom_id(assigns.form_id, assigns.uischema, path)
