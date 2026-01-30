@@ -127,7 +127,7 @@ Required fields (v1):
 - `submitted :: boolean()` (true after first submit attempt; gates error visibility)
 - `rule_state :: %{element_id_or_path => %{visible?: boolean(), enabled?: boolean()}}`
 - `registry :: JsonFormsLV.Registry.t()`
-- `i18n :: %{locale: String.t() | nil, translate: (String.t(), String.t() | nil, map() -> String.t() | nil) | nil, translate_error: (JsonFormsLV.Error.t(), map() -> String.t() | nil) | nil}`
+- `i18n :: %{locale: String.t() | nil, translate: function() | nil, translate_error: function() | nil}`
 - `readonly :: boolean()` (global, form-wide)
 - `raw_inputs :: %{data_path => String.t()}` (required for good numeric UX; preserves raw strings when coercion fails)
 - `opts :: map()` (renderer config, theme tokens, performance flags)
@@ -338,7 +338,6 @@ Format-specific coercion (v1):
 
 Coercion failures:
 
-- For inputs where coercion can fail during typing (notably number/integer), the engine SHOULD preserve the raw input in `state.raw_inputs[path]` so the UI can continue to display the user's in-progress value.
 - For inputs where coercion can fail during typing (notably number/integer), the engine MUST preserve the raw input in `state.raw_inputs[path]` so the UI can continue to display the user's in-progress value.
 - When coercion fails, the engine MUST NOT crash; it MAY either:
   - keep the previous typed data value and only update `raw_inputs`, or
@@ -836,9 +835,18 @@ Item schema resolution:
 
 Phoenix adapter accepts:
 
-- `i18n: %{locale: String.t() | nil, translate: (key, default_message, ctx -> translated_message | nil) | nil, translate_error: (error, translate, ctx -> translated_message | nil) | (error, ctx -> translated_message | nil) | nil}`
+- `i18n: %{locale: String.t() | nil, translate: (key, default_message, ctx -> translated_message | nil) | nil, translate_error: function() | nil}`
   - the adapter MUST accept both `:translate_error` and `"translateError"` keys for convenience (snake_case in Elixir, camelCase in JSON docs/examples).
-  - when the provided `translate_error` uses the JSON Forms signature `(error, translate, uischema?)`, the adapter MUST pass the `translate` callback and `uischema` in `ctx` (or an explicit third arg). When only `(error, ctx)` is accepted, the adapter MUST pass `ctx` containing `:translate` and `:uischema`.
+
+Accepted `translate_error` callback forms (v1):
+
+- Elixir-friendly (preferred): `translate_error.(error :: JsonFormsLV.Error.t(), ctx :: map()) :: String.t() | nil`
+- JSON Forms-compatible: `translate_error.(error :: JsonFormsLV.Error.t(), translate :: function(), uischema :: map()) :: String.t() | nil`
+
+Adapter rule:
+
+- The adapter MUST detect the callback arity and call it accordingly.
+- When calling the 2-arity form, `ctx` MUST include (at minimum) `:translate` and `:uischema` so users can implement JSON Forms-like behavior in Elixir without relying on arity-3.
 
 UISchema may provide:
 
@@ -1088,7 +1096,7 @@ This plan is ordered to keep core pure/testable, ship value early, and mirror th
 ### Milestone 0: Project scaffolding
 
 - Rename/introduce namespaces consistently:
-  - prefer `JsonFormsLV.*` module namespace (keep OTP app `:json_form_lv` unless you intentionally rename).
+  - prefer `JsonFormsLV.*` module namespace (OTP app is `:json_forms_lv`).
 - Add basic docs scaffolding in `README.md` pointing to this spec.
 - Add CI that runs `mix test` for root and `demo/` (and formatting checks).
 - Add a central `JsonFormsLV.Limits` module and wire default limits into the engine (even if the initial values are permissive).
