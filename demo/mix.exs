@@ -40,6 +40,7 @@ defmodule JsonFormsLvDemo.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:json_forms_lv, path: ".."},
       {:phoenix, "~> 1.8.3"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
