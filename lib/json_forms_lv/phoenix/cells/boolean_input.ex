@@ -15,10 +15,7 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
 
   @impl JsonFormsLV.Renderer
   def render(assigns) do
-    assigns =
-      assigns
-      |> Map.put(:checked?, assigns.value == true)
-      |> Map.put(:disabled?, disabled?(assigns))
+    assigns = assign(assigns, checked?: assigns.value == true, disabled?: disabled?(assigns))
 
     ~H"""
     <input
@@ -28,7 +25,11 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
       checked={@checked?}
       disabled={@disabled?}
       phx-change={
-        JS.push(@on_change, value: %{path: @path, meta: %{touch: true}}, target: @target)
+        JS.push(
+          @on_change,
+          value: %{path: @path, value: not @checked?, meta: %{touch: true}},
+          target: @target
+        )
       }
       phx-blur={JS.push(@on_blur, value: %{path: @path, meta: %{touch: true}}, target: @target)}
     />

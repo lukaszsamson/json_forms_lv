@@ -24,11 +24,7 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
         _ -> to_string(assigns.value)
       end
 
-    assigns =
-      assigns
-      |> Map.put(:inputmode, inputmode)
-      |> Map.put(:value, value)
-      |> Map.put(:disabled?, disabled?(assigns))
+    assigns = assign(assigns, inputmode: inputmode, value: value, disabled?: disabled?(assigns))
 
     ~H"""
     <input

@@ -3,7 +3,7 @@ defmodule JsonFormsLV.Engine do
   Pure core engine functions.
   """
 
-  alias JsonFormsLV.{Coercion, Data, Errors, Limits, Schema, State}
+  alias JsonFormsLV.{Coercion, Data, Errors, Limits, Rules, Schema, State}
 
   @spec init(map(), map(), term(), map() | keyword()) :: {:ok, State.t()} | {:error, term()}
   def init(schema, uischema, data, opts) do
@@ -240,6 +240,7 @@ defmodule JsonFormsLV.Engine do
     do: validator.compile(schema, validator_opts)
 
   defp validate_state(%State{} = state) do
+    rule_state = Rules.evaluate(state.uischema, state.data, state.validator, state.validator_opts)
     additional_errors = Errors.normalize_additional(state.additional_errors || [])
 
     validator_errors =
@@ -260,6 +261,6 @@ defmodule JsonFormsLV.Engine do
 
     errors = Errors.merge(validator_errors, additional_errors, state.opts)
 
-    %State{state | errors: errors, additional_errors: additional_errors}
+    %State{state | errors: errors, additional_errors: additional_errors, rule_state: rule_state}
   end
 end

@@ -10,7 +10,7 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "#debug-data", "\"name\": \"Ada\"")
 
     view
-    |> element("#demo-json-forms-Control-name-input")
+    |> element("input[name='name']")
     |> render_change(%{"value" => "Grace", "path" => "name"})
 
     assert has_element?(view, "#debug-data", "\"name\": \"Grace\"")
@@ -20,7 +20,7 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     {:ok, view, _html} = live(conn, ~p"/demo")
 
     view
-    |> element("#demo-json-forms-Control-name-input")
+    |> element("input[name='name']")
     |> render_change(%{
       "value" => "",
       "path" => "name",
@@ -40,5 +40,23 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     render_submit(view, "jf:submit", %{})
 
     assert has_element?(view, "#demo-submit-errors")
+  end
+
+  test "rules scenario hides and shows details", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "rules"})
+
+    assert has_element?(view, "#demo-scenario", "rules")
+    assert has_element?(view, "#debug-data", "\"show_details\"")
+    assert has_element?(view, "#debug-uischema", "show_details")
+
+    refute has_element?(view, "input[name='details']")
+
+    render_change(view, "jf:change", %{"path" => "show_details", "value" => "true"})
+
+    assert has_element?(view, "#debug-data", "\"show_details\": true")
+    assert has_element?(view, "#debug-rules", "\"visible?\": true")
+    assert has_element?(view, "input[name='details']")
   end
 end

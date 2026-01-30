@@ -48,6 +48,7 @@ defmodule JsonFormsLV.Phoenix.Components do
           registry={@registry}
           uischema={@uischema}
           form_id={@id}
+          element_path={[]}
           on_change={@on_change}
           on_blur={@on_blur}
           on_submit={@on_submit}
@@ -61,6 +62,7 @@ defmodule JsonFormsLV.Phoenix.Components do
         registry={@registry}
         uischema={@uischema}
         form_id={@id}
+        element_path={[]}
         on_change={@on_change}
         on_blur={@on_blur}
         on_submit={@on_submit}
@@ -76,6 +78,7 @@ defmodule JsonFormsLV.Phoenix.Components do
   attr(:uischema, :map, required: true)
   attr(:form_id, :string, required: true)
   attr(:path, :string, default: "")
+  attr(:element_path, :list, default: [])
   attr(:depth, :integer, default: 0)
   attr(:on_change, :string, required: true)
   attr(:on_blur, :string, required: true)
@@ -170,6 +173,8 @@ defmodule JsonFormsLV.Phoenix.Components do
 
     {path, schema} = resolve_path_and_schema(assigns, state)
     instance_path = Path.data_path_to_instance_path(path)
+    element_key = JsonFormsLV.Rules.element_key(assigns.uischema, assigns.element_path || [])
+    render_key = JsonFormsLV.Rules.render_key(element_key, path)
     raw_input = Map.get(state.raw_inputs || %{}, path, :no_raw)
 
     value =
@@ -178,13 +183,26 @@ defmodule JsonFormsLV.Phoenix.Components do
         _ -> raw_input
       end
 
-    visible? = assigns.parent_visible?
-    enabled? = assigns.parent_enabled? && !state.readonly
+    rule_flags = Map.get(state.rule_state || %{}, render_key, %{visible?: true, enabled?: true})
+    visible? = assigns.parent_visible? && Map.get(rule_flags, :visible?, true)
+    enabled? = assigns.parent_enabled? && Map.get(rule_flags, :enabled?, true)
 
     options =
       case assigns.uischema do
         %{"options" => opts} when is_map(opts) -> opts
         _ -> %{}
+      end
+
+    uischema_readonly? =
+      Map.get(options, "readonly") == true or Map.get(options, "readOnly") == true
+
+    schema_readonly? = is_map(schema) and Map.get(schema, "readOnly") == true
+
+    enabled? =
+      if state.readonly or uischema_readonly? or schema_readonly? do
+        false
+      else
+        enabled?
       end
 
     ctx =
@@ -198,7 +216,9 @@ defmodule JsonFormsLV.Phoenix.Components do
         i18n: state.i18n,
         readonly: state.readonly,
         translate:
-          Map.get(state.i18n || %{}, :translate) || Map.get(state.i18n || %{}, "translate")
+          Map.get(state.i18n || %{}, :translate) || Map.get(state.i18n || %{}, "translate"),
+        element_key: element_key,
+        render_key: render_key
       })
 
     id = dom_id(assigns.form_id, assigns.uischema, path)
@@ -224,6 +244,8 @@ defmodule JsonFormsLV.Phoenix.Components do
       renderer_assigns =
         Map.merge(assigns, %{
           id: id,
+          element_key: element_key,
+          render_key: render_key,
           path: path,
           instance_path: instance_path,
           schema: schema,

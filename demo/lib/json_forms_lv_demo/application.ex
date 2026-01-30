@@ -9,7 +9,8 @@ defmodule JsonFormsLvDemo.Application do
   def start(_type, _args) do
     children = [
       JsonFormsLvDemoWeb.Telemetry,
-      {DNSCluster, query: Application.get_env(:json_forms_lv_demo, :dns_cluster_query) || :ignore},
+      {DNSCluster,
+       query: Application.get_env(:json_forms_lv_demo, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: JsonFormsLvDemo.PubSub},
       # Start a worker by calling: JsonFormsLvDemo.Worker.start_link(arg)
       # {JsonFormsLvDemo.Worker, arg},

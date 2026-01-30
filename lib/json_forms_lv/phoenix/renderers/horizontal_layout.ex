@@ -16,18 +16,19 @@ defmodule JsonFormsLV.Phoenix.Renderers.HorizontalLayout do
   @impl JsonFormsLV.Renderer
   def render(assigns) do
     elements = Map.get(assigns.uischema, "elements", [])
-    assigns = Map.put(assigns, :elements, elements)
+    assigns = assign(assigns, :elements, Enum.with_index(elements))
 
     ~H"""
     <%= if @visible? do %>
       <div id={@id} data-jf-layout="horizontal" class="jf-layout jf-horizontal">
-        <%= for element <- @elements do %>
+        <%= for {element, index} <- @elements do %>
           <.dispatch
             state={@state}
             registry={@registry}
             uischema={element}
             form_id={@form_id}
             path={@path}
+            element_path={(@element_path || []) ++ [index]}
             depth={@depth + 1}
             on_change={@on_change}
             on_blur={@on_blur}

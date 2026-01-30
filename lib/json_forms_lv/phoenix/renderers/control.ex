@@ -19,11 +19,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
     description = resolve_description(assigns)
     input_id = "#{assigns.id}-input"
 
-    assigns =
-      assigns
-      |> Map.put(:label, label)
-      |> Map.put(:description, description)
-      |> Map.put(:input_id, input_id)
+    assigns = assign(assigns, label: label, description: description, input_id: input_id)
 
     cell_entry =
       Dispatch.pick_renderer(
@@ -36,31 +32,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
 
     {cell_module, _opts} = cell_entry || {JsonFormsLV.Phoenix.Cells.StringInput, []}
 
-    cell_assigns =
-      assigns
-      |> Map.take([
-        :uischema,
-        :schema,
-        :root_schema,
-        :data,
-        :path,
-        :instance_path,
-        :value,
-        :enabled?,
-        :readonly?,
-        :options,
-        :i18n,
-        :config,
-        :on_change,
-        :on_blur,
-        :target
-      ])
-      |> Map.put(:id, input_id)
-
-    assigns =
-      assigns
-      |> Map.put(:cell_module, cell_module)
-      |> Map.put(:cell_assigns, cell_assigns)
+    assigns = assign(assigns, cell_module: cell_module)
 
     ~H"""
     <%= if @visible? do %>
@@ -68,7 +40,26 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
         <%= if @label do %>
           <label for={@input_id} class="jf-label">{@label}</label>
         <% end %>
-        <%= apply(@cell_module, :render, [@cell_assigns]) %>
+        <.dynamic_component
+          module={@cell_module}
+          function={:render}
+          id={@input_id}
+          uischema={@uischema}
+          schema={@schema}
+          root_schema={@root_schema}
+          data={@data}
+          path={@path}
+          instance_path={@instance_path}
+          value={@value}
+          enabled?={@enabled?}
+          readonly?={@readonly?}
+          options={@options}
+          i18n={@i18n}
+          config={@config}
+          on_change={@on_change}
+          on_blur={@on_blur}
+          target={@target}
+        />
         <%= if @description do %>
           <p class="jf-description">{@description}</p>
         <% end %>
@@ -82,6 +73,31 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
       </div>
     <% end %>
     """
+  end
+
+  attr(:module, :atom, required: true)
+  attr(:function, :atom, required: true)
+  attr(:id, :string, required: true)
+  attr(:uischema, :map, required: true)
+  attr(:schema, :map, required: true)
+  attr(:root_schema, :map, required: true)
+  attr(:data, :any, required: true)
+  attr(:path, :string, required: true)
+  attr(:instance_path, :string, required: true)
+  attr(:value, :any, required: true)
+  attr(:enabled?, :boolean, required: true)
+  attr(:readonly?, :boolean, required: true)
+  attr(:options, :map, required: true)
+  attr(:i18n, :map, required: true)
+  attr(:config, :map, required: true)
+  attr(:on_change, :string, required: true)
+  attr(:on_blur, :string, required: true)
+  attr(:target, :any, default: nil)
+
+  defp dynamic_component(assigns) do
+    {mod, assigns} = Map.pop(assigns, :module)
+    {func, assigns} = Map.pop(assigns, :function)
+    apply(mod, func, [assigns])
   end
 
   defp resolve_label(%{uischema: %{"label" => false}}), do: nil
