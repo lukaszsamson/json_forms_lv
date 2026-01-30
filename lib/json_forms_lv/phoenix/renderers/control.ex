@@ -16,11 +16,13 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
   @impl JsonFormsLV.Renderer
   def render(assigns) do
     label = resolve_label(assigns)
+    description = resolve_description(assigns)
     input_id = "#{assigns.id}-input"
 
     assigns =
       assigns
       |> Map.put(:label, label)
+      |> Map.put(:description, description)
       |> Map.put(:input_id, input_id)
 
     cell_entry =
@@ -67,6 +69,16 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
           <label for={@input_id} class="jf-label">{@label}</label>
         <% end %>
         <%= apply(@cell_module, :render, [@cell_assigns]) %>
+        <%= if @description do %>
+          <p class="jf-description">{@description}</p>
+        <% end %>
+        <%= if @show_errors? and @errors_for_control != [] do %>
+          <ul class="jf-errors">
+            <%= for error <- @errors_for_control do %>
+              <li>{error.message}</li>
+            <% end %>
+          </ul>
+        <% end %>
       </div>
     <% end %>
     """
@@ -86,6 +98,17 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
   end
 
   defp resolve_label(_), do: nil
+
+  defp resolve_description(%{uischema: %{"options" => %{"description" => description}}})
+       when is_binary(description) do
+    description
+  end
+
+  defp resolve_description(%{schema: %{"description" => description}})
+       when is_binary(description),
+       do: description
+
+  defp resolve_description(_), do: nil
 
   defp humanize(nil), do: nil
 

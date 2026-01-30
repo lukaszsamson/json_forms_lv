@@ -5,7 +5,7 @@ defmodule JsonFormsLV.Phoenix.Components do
 
   use Phoenix.Component
 
-  alias JsonFormsLV.{Data, Dispatch, Engine, Limits, Path, Registry, Schema, State}
+  alias JsonFormsLV.{Data, Dispatch, Engine, Errors, Limits, Path, Registry, Schema, State}
 
   attr(:id, :string, required: true)
   attr(:schema, :map, required: true)
@@ -94,31 +94,39 @@ defmodule JsonFormsLV.Phoenix.Components do
   defp ensure_state(%{state: %State{}} = assigns) do
     state =
       assigns.state
-      |> Map.put(:validation_mode, assigns.validation_mode)
-      |> Map.put(:additional_errors, assigns.additional_errors)
       |> Map.put(:readonly, assigns.readonly)
       |> Map.put(:i18n, assigns.i18n)
       |> Map.put(:opts, merge_config(assigns.state.opts, assigns.opts))
+
+    {:ok, state} = Engine.set_validation_mode(state, assigns.validation_mode)
+    {:ok, state} = Engine.set_additional_errors(state, assigns.additional_errors)
 
     assign(assigns, :state, state)
   end
 
   defp ensure_state(assigns) do
+    init_opts =
+      assigns.opts
+      |> merge_config(%{validation_mode: assigns.validation_mode})
+
     state =
-      case Engine.init(assigns.schema, assigns.uischema, assigns.data, assigns.opts) do
-        {:ok, state} ->
-          %State{state | validation_mode: assigns.validation_mode}
+      case Engine.init(assigns.schema, assigns.uischema, assigns.data, init_opts) do
+        {:ok, %State{} = state} ->
+          state
 
         {:error, _reason} ->
           %State{schema: assigns.schema, uischema: assigns.uischema, data: assigns.data}
       end
 
-    state = %State{
-      state
-      | additional_errors: assigns.additional_errors,
-        readonly: assigns.readonly,
-        i18n: assigns.i18n
-    }
+    state =
+      %State{
+        state
+        | additional_errors: assigns.additional_errors,
+          readonly: assigns.readonly,
+          i18n: assigns.i18n
+      }
+
+    {:ok, state} = Engine.set_additional_errors(state, assigns.additional_errors)
 
     assign(assigns, :state, state)
   end
@@ -198,6 +206,12 @@ defmodule JsonFormsLV.Phoenix.Components do
       entry = Dispatch.pick_renderer(assigns.uischema, schema, assigns.registry, ctx, kind)
       {renderer, renderer_opts} = entry || {JsonFormsLV.Phoenix.Renderers.Unknown, []}
 
+      errors_for_control = Errors.errors_for_control(state, path)
+
+      show_errors? =
+        Errors.show_validator_errors?(state, path) ||
+          Errors.has_additional_errors?(errors_for_control)
+
       renderer_assigns =
         Map.merge(assigns, %{
           id: id,
@@ -214,7 +228,9 @@ defmodule JsonFormsLV.Phoenix.Components do
           i18n: state.i18n,
           config: config,
           renderer_opts: renderer_opts,
-          ctx: ctx
+          ctx: ctx,
+          errors_for_control: errors_for_control,
+          show_errors?: show_errors?
         })
 
       %{renderer: renderer, renderer_assigns: renderer_assigns}

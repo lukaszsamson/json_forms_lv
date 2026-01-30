@@ -23,7 +23,8 @@ defmodule JsonFormsLV.MixProject do
     [
       {:phoenix, "~> 1.8.3"},
       {:phoenix_html, "~> 4.1"},
-      {:phoenix_live_view, "~> 1.1.0"}
+      {:phoenix_live_view, "~> 1.1.0"},
+      {:jsv, "~> 0.16"}
     ]
   end
 end

@@ -3,7 +3,7 @@ defmodule JsonFormsLV.Engine do
   Pure core engine functions.
   """
 
-  alias JsonFormsLV.{Coercion, Data, Limits, Schema, State}
+  alias JsonFormsLV.{Coercion, Data, Errors, Limits, Schema, State}
 
   @spec init(map(), map(), term(), map() | keyword()) :: {:ok, State.t()} | {:error, term()}
   def init(schema, uischema, data, opts) do
@@ -17,14 +17,28 @@ defmodule JsonFormsLV.Engine do
       true ->
         opts_map = normalize_opts(opts)
         opts_with_limits = Limits.with_defaults(opts_map)
+        validation_mode = Map.get(opts_with_limits, :validation_mode, :validate_and_show)
 
-        {:ok,
-         %State{
-           schema: schema,
-           uischema: uischema,
-           data: data,
-           opts: opts_with_limits
-         }}
+        resolver =
+          Map.get(opts_with_limits, :schema_resolver, JsonFormsLV.SchemaResolvers.Default)
+
+        validator = Map.get(opts_with_limits, :validator, JsonFormsLV.Validators.JSV)
+        validator_opts = Map.get(opts_with_limits, :validator_opts, [])
+
+        with {:ok, resolved_schema} <- resolver.resolve(schema, opts_with_limits),
+             {:ok, compiled} <- validator.compile(resolved_schema, validator_opts) do
+          state = %State{
+            schema: resolved_schema,
+            uischema: uischema,
+            data: data,
+            opts: opts_with_limits,
+            validation_mode: validation_mode,
+            validator: %{module: validator, compiled: compiled},
+            validator_opts: validator_opts
+          }
+
+          {:ok, validate_state(state)}
+        end
     end
   end
 
@@ -42,7 +56,8 @@ defmodule JsonFormsLV.Engine do
       touched = maybe_touch(state.touched, data_path, meta)
       raw_inputs = Map.delete(state.raw_inputs, data_path)
 
-      {:ok, %State{state | data: updated_data, touched: touched, raw_inputs: raw_inputs}}
+      state = %State{state | data: updated_data, touched: touched, raw_inputs: raw_inputs}
+      {:ok, validate_state(state)}
     end
   end
 
@@ -50,6 +65,19 @@ defmodule JsonFormsLV.Engine do
   def touch(%State{} = state, data_path) when is_binary(data_path) do
     touched = MapSet.put(state.touched, data_path)
     {:ok, %State{state | touched: touched}}
+  end
+
+  @spec set_additional_errors(State.t(), [map()]) :: {:ok, State.t()}
+  def set_additional_errors(%State{} = state, additional_errors)
+      when is_list(additional_errors) do
+    state = %State{state | additional_errors: additional_errors}
+    {:ok, validate_state(state)}
+  end
+
+  @spec set_validation_mode(State.t(), atom()) :: {:ok, State.t()}
+  def set_validation_mode(%State{} = state, mode) when is_atom(mode) do
+    state = %State{state | validation_mode: mode}
+    {:ok, validate_state(state)}
   end
 
   defp normalize_opts(nil), do: %{}
@@ -69,4 +97,28 @@ defmodule JsonFormsLV.Engine do
   end
 
   defp maybe_touch(touched, _data_path, _meta), do: touched
+
+  defp validate_state(%State{} = state) do
+    additional_errors = Errors.normalize_additional(state.additional_errors || [])
+
+    validator_errors =
+      cond do
+        state.validation_mode == :no_validation ->
+          []
+
+        state.validator == nil ->
+          []
+
+        true ->
+          state.validator.module.validate(
+            state.validator.compiled,
+            state.data,
+            state.validator_opts
+          )
+      end
+
+    errors = Errors.merge(validator_errors, additional_errors, state.opts)
+
+    %State{state | errors: errors, additional_errors: additional_errors}
+  end
 end
