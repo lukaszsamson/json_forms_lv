@@ -129,6 +129,7 @@ Required fields (v1):
 - `registry :: JsonFormsLV.Registry.t()`
 - `i18n :: %{locale: String.t() | nil, translate: (String.t(), String.t() | nil, map() -> String.t() | nil) | nil, translate_error: (JsonFormsLV.Error.t(), map() -> String.t() | nil) | nil}`
 - `readonly :: boolean()` (global, form-wide)
+- `raw_inputs :: %{data_path => String.t()}` (required for good numeric UX; preserves raw strings when coercion fails)
 - `opts :: map()` (renderer config, theme tokens, performance flags)
 
 Recommended derived/cached fields (v1):
@@ -136,7 +137,6 @@ Recommended derived/cached fields (v1):
 - `schema_index :: term()` (precomputed schema pointer lookup/index)
 - `uischema_index :: term()` (optional id/path index)
 - `array_ids :: %{data_path => [String.t()]}` (stable ids for array items, if needed)
-- `raw_inputs :: %{data_path => String.t()}` (optional: preserve raw input strings when coercion fails, e.g. invalid numeric typing)
 
 ### 4.1.1 UISchema element keys and render keys
 
@@ -178,6 +178,14 @@ Rules:
 - Merge SHOULD de-duplicate by `{instance_path, message, keyword, schema_path}`.
 - The engine SHOULD cap stored errors using `JsonFormsLV.Limits` (e.g. keep first N errors deterministically) to avoid DoS via pathological schemas/data.
 
+Error ordering and capping (determinism):
+
+- The engine MUST merge errors in deterministic order:
+  1) validator errors (in the order returned by the validator; validator adapters must make this stable for the same inputs)
+  2) additional errors (in the order provided by the caller)
+- De-dup MUST preserve the first occurrence.
+- If capping applies, keep the first `N` after merge/de-dup (do not re-sort), so error ordering remains stable.
+
 ---
 
 ## 5) Paths, binding, and input naming
@@ -215,6 +223,10 @@ Schema fragment resolution (required for coercion, validation, renderer selectio
 - `JsonFormsLV.Schema.resolve_pointer(schema :: map(), schema_pointer :: String.t()) :: {:ok, map()} | {:error, term()}`
 - `JsonFormsLV.Schema.resolve_at_data_path(schema :: map(), data_path :: String.t()) :: {:ok, map()} | {:error, term()}`
   - `resolve_at_data_path/2` MUST walk `properties` for object keys and `items` for list indices.
+  - Nested arrays example:
+    - data path: `"matrix.0.1"`
+    - schema: `%{"type" => "array", "items" => %{"type" => "array", "items" => %{"type" => "number"}}}`
+    - resolution: `items` (outer) -> `items` (inner) -> returns `%{"type" => "number"}`
 
 ### 5.2 Binding strategies
 
@@ -224,6 +236,14 @@ Strategy A: Form-level `phx-change` (simple, heavier payload)
 
 - Inputs use names like `jf[foo][bar]`.
 - LV receives all params + `"_target"`; library extracts changed path and value.
+
+Form-level path extraction algorithm (v1):
+
+1. Read `"_target"` from params (e.g. `["jf", "address", "street"]`).
+2. Drop the form name prefix (default `"jf"` unless configured).
+3. Join remaining segments with `"."` to form the data path (e.g. `"address.street"`).
+4. Read the value from the nested params at that path (handling multi-select lists).
+5. Emit/dispatch `{:update_data, path, value, meta}` where `meta` includes the raw `"_target"`.
 
 Strategy B: Per-control events (scales better; default)
 
@@ -307,10 +327,19 @@ LiveView form params arrive as strings. The engine MUST coerce values based on t
   - keep as string (do not trim unless explicitly configured)
 - union types (e.g. `type: ["string", "null"]`):
   - treat empty string as `nil` when `"null"` is allowed AND `opts[:empty_string_as_null] == true` (default true for union-with-null)
+- multi-select / list inputs:
+  - if the incoming value is a list, coerce each element according to the `items` schema fragment (for `type: "array"` bindings)
+  - the engine MUST preserve list order and SHOULD preserve duplicates (validation handles `uniqueItems`)
+
+Format-specific coercion (v1):
+
+- The engine SHOULD keep JSON-compatible values in `data`. For common formats like `"date"` and `"date-time"`, the engine stores strings (e.g. `"2024-01-30"`, ISO8601) and does not coerce to `%Date{}` / `%DateTime{}` structs.
+- Input rendering for formats (e.g. `<input type="date">`) is a cell renderer concern.
 
 Coercion failures:
 
 - For inputs where coercion can fail during typing (notably number/integer), the engine SHOULD preserve the raw input in `state.raw_inputs[path]` so the UI can continue to display the user's in-progress value.
+- For inputs where coercion can fail during typing (notably number/integer), the engine MUST preserve the raw input in `state.raw_inputs[path]` so the UI can continue to display the user's in-progress value.
 - When coercion fails, the engine MUST NOT crash; it MAY either:
   - keep the previous typed data value and only update `raw_inputs`, or
   - store the raw string in data (less JSON-accurate) and rely on validation to surface errors.
@@ -331,6 +360,23 @@ The Phoenix adapter SHOULD:
 
 - render a helpful error box in development/test,
 - avoid leaking sensitive details in production (log internally, show generic error UI).
+
+### 6.5 Engine options (v1)
+
+Engine and Phoenix adapter options are passed via `opts` (atom keys). v1 options SHOULD include:
+
+- `:apply_defaults` (boolean, default `false`)
+- `:empty_string_as_null` (boolean, default `true` when schema allows null; otherwise `false`)
+- `:validate_on` (`:change | :blur | :submit`, default `:change`)
+- `:stream_arrays` (boolean, default `false`)
+- `:error_mapping` (`:exact | :subtree`, default `:exact`)
+- `:hide_additional_errors?` (boolean, default `false`)
+- `:additional_errors_gate` (`:always | :touched_or_submitted`, default `:always`)
+- `:array_id_field` (string, default `"id"`)
+- `:form_param_key` (string, default `"jf"`; for form-level binding)
+- `:max_elements` / `:max_depth` / `:max_errors` / `:max_data_bytes` (limits; defaults defined in `JsonFormsLV.Limits`)
+- `:schema_resolver` (module, default `JsonFormsLV.SchemaResolvers.Default`)
+- `:validator` (module, default `JsonFormsLV.Validators.Default`)
 
 ---
 
@@ -358,6 +404,7 @@ Notes:
 Default validator recommendation (implementation choice, not required by spec):
 
 - `:xema` (Hex: `{:xema, "~> 0.17"}`) because it supports JSON Schema-style validation beyond draft4.
+- The chosen default validator adapter MUST normalize errors to include `instance_path`, and SHOULD populate `keyword`, `schema_path`, and `params` when the underlying validator supports it. If the underlying validator does not expose these fields, the adapter MUST document the limitation.
 
 ### 7.2 `$ref` resolving
 
@@ -386,6 +433,7 @@ Default behavior:
 UISchema references:
 
 - v1 MAY ignore `$ref` inside UISchema, but MUST document that advanced UISchema constructs (e.g. array `options.detail` referencing registered detail uischemas) may require an additional UISchema resolution phase in future versions.
+- v1 supports `options.detail: "REGISTERED"` via an explicit registry lookup (not via UISchema `$ref`). UISchema `$ref` parsing remains deferred.
 
 ### 7.3 Defaults
 
@@ -433,6 +481,13 @@ Element shapes (v1 subset):
 - `Label`: `%{"type" => "Label", "text" => "...", ...}`
 - `Categorization`: `%{"type" => "Categorization", "elements" => [category, ...]}`
 - `Category`: `%{"type" => "Category", "label" => "...", "elements" => [ ... ]}`
+
+Categorization rendering behavior (default):
+
+- Render as tabs with one `Category` visible at a time.
+- `Category.label` is the tab label.
+- The first category is active by default.
+- The renderer MAY support alternate presentations (accordion) via `uischema.options`.
 
 Label resolution (Controls):
 
@@ -516,6 +571,10 @@ Dispatch rules:
 
 - Compute all applicable ranks (ignore `:not_applicable`).
 - Highest rank wins; ties resolved by registration order (the earliest registered renderer wins).
+- Dispatch MUST track render depth (starting at 0 from the root) and MUST enforce `JsonFormsLV.Limits.max_depth`.
+  - If the limit is exceeded:
+    - in dev/test: render the fallback renderer with a clear "max depth exceeded" message,
+    - in prod: skip rendering the subtree and log a warning (do not crash).
 
 ### 9.2 Control vs cell split (recommended)
 
@@ -634,6 +693,10 @@ Visibility rule (JSON Forms parity):
   - `errors_for_control :: [JsonFormsLV.Error]`
   - `show_errors?` (derived from validation mode + touched/submit gating)
 
+Display ordering:
+
+- Renderers SHOULD display `errors_for_control` in the order provided (deterministic merge order; see Section 4.2).
+
 ### 10.4 "Touched" gating
 
 For per-input binding, the library MUST track touched paths and only show errors for touched controls until submit.
@@ -739,6 +802,15 @@ If `opts[:stream_arrays] == true`:
 - Array updates use `stream_insert/4`, `stream_delete/3`, and reorder patterns.
 
 The demo app SHOULD include a "streaming arrays" scenario similar in spirit to `a2ui_lv`'s streaming demo and should include LiveViewTest assertions that DOM ids remain stable across operations.
+
+Stream operation communication (v1 clarification):
+
+- The Engine does not call `stream_*` (Phoenix concern) and does not store stream assigns.
+- Recommended adapter flow:
+  1) Parent LiveView keeps `state` in assigns (controlled mode).
+  2) On array-changing actions, compute `old_state` and `new_state`.
+  3) Use `JsonFormsLV.Phoenix.StreamSync.sync(socket, old_state, new_state, opts)` to apply `stream_insert`/`stream_delete`/reorder based on `array_ids` diffs, then assign the new state.
+- Simpler alternative (acceptable for v1 demos): use `stream(socket, stream_name, items, reset: true)` after each array change, using stable ids from `array_ids`.
 
 ### 12.4 JSON Forms array options (planned v1/v1.1)
 
@@ -883,6 +955,15 @@ Event helpers:
 
 - Default renderers SHOULD use `JsonFormsLV.Event` helpers to build payloads consistently.
 
+Event-to-action mapping (v1):
+
+- `"jf:change"` -> `{:update_data, path, value, meta}`
+- `"jf:blur"` -> `{:touch, path}`
+- `"jf:submit"` -> `:touch_all` then validate (and update `submitted = true`)
+- `"jf:add_item"` -> `{:add_item, path, opts}`
+- `"jf:remove_item"` -> `{:remove_item, path, index_or_id}`
+- `"jf:move_item"` -> `{:move_item, path, from, to}`
+
 Form-level change:
 
 - standard LV form payload plus `"_target"`; library extracts `path` + `value` internally.
@@ -915,6 +996,7 @@ Self-contained LiveComponent (optional, later milestone):
 - Avoid atom leaks: schema/uischema keys are strings; never convert arbitrary keys to atoms.
 - DOM id safety:
   - derive DOM ids from `(form_id, uischema_element_id_or_path, data_path)` and a stable hash.
+  - DOM ids MUST be safe for HTML/CSS selectors and MUST NOT embed raw JSON Pointer segments. Recommended: compute `sha256(form_id <> \"|\" <> render_key)` and encode using base64url (or hex).
 - Safety limits (recommended; mirror `a2ui_lv` hardening):
   - cap maximum rendered UISchema elements (e.g. 1000)
   - cap maximum render depth/recursion (e.g. 30)
@@ -961,6 +1043,17 @@ Minimum scenarios for v1 tests:
 - validation mode toggle
 - additional errors injection
 - array add/remove (and streaming if enabled)
+
+Scenario assertions (examples; v1 baseline):
+
+- "rules hide/disable" MUST assert:
+  - hidden elements are not present in the DOM (not just `display:none`)
+  - disabled controls have the `disabled` attribute
+- "validation mode toggle" MUST assert:
+  - validate-and-hide computes errors but does not render them
+  - additional errors are still rendered
+- "arrays" MUST assert:
+  - stable DOM ids for items across add/remove (and reorder if enabled)
 
 ---
 
