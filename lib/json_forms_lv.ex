@@ -1,18 +1,7 @@
-defmodule JsonFormsLv do
+defmodule JsonFormsLV do
   @moduledoc """
-  Documentation for `JsonFormsLv`.
+  Server-side JSON Forms 3.x renderer for Phoenix LiveView.
+
+  See `SPEC_V1.md` for the v1 scope and contract.
   """
-
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> JsonFormsLv.hello()
-      :world
-
-  """
-  def hello do
-    :world
-  end
 end

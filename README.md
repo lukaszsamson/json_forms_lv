@@ -1,6 +1,8 @@
-# JsonFormsLv
+# JsonFormsLV
 
-**TODO: Add description**
+Server-side JSON Forms 3.x renderer for Phoenix LiveView.
+
+See `SPEC_V1.md` for the v1 scope, architecture, and implementation plan.
 
 ## Installation
 
@@ -18,4 +20,3 @@ end
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/json_forms_lv>.
-

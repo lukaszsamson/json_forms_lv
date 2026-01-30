@@ -1,4 +1,4 @@
-defmodule JsonFormsLv.MixProject do
+defmodule JsonFormsLV.MixProject do
   use Mix.Project
 
   def project do
