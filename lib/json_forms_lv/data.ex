@@ -17,7 +17,7 @@ defmodule JsonFormsLV.Data do
   def put(_data, path, _value) when not is_binary(path),
     do: {:error, {:invalid_path, path}}
 
-  def put(data, "", value), do: {:ok, value}
+  def put(_data, "", value), do: {:ok, value}
 
   def put(data, path, value) do
     segments = Path.parse_data_path(path)

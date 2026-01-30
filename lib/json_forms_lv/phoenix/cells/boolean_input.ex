@@ -17,8 +17,8 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
   def render(assigns) do
     assigns =
       assigns
-      |> assign(:checked?, assigns.value == true)
-      |> assign(:disabled?, disabled?(assigns))
+      |> Map.put(:checked?, assigns.value == true)
+      |> Map.put(:disabled?, disabled?(assigns))
 
     ~H"""
     <input

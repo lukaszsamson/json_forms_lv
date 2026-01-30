@@ -16,7 +16,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Unknown do
 
     assigns =
       assigns
-      |> assign(:message, message)
+      |> Map.put(:message, message)
 
     ~H"""
     <div id={@id} data-jf-unknown class="jf-unknown">

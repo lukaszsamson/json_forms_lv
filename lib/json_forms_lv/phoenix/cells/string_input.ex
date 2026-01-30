@@ -18,8 +18,8 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
   def render(assigns) do
     assigns =
       assigns
-      |> assign(:disabled?, disabled?(assigns))
-      |> assign(:value, assigns.value || "")
+      |> Map.put(:disabled?, disabled?(assigns))
+      |> Map.put(:value, assigns.value || "")
 
     ~H"""
     <input

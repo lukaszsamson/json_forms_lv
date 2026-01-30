@@ -3,7 +3,7 @@ defmodule JsonFormsLV.Engine do
   Pure core engine functions.
   """
 
-  alias JsonFormsLV.{Data, Limits, State}
+  alias JsonFormsLV.{Coercion, Data, Limits, Schema, State}
 
   @spec init(map(), map(), term(), map() | keyword()) :: {:ok, State.t()} | {:error, term()}
   def init(schema, uischema, data, opts) do
@@ -30,12 +30,26 @@ defmodule JsonFormsLV.Engine do
 
   @spec update_data(State.t(), String.t(), term(), map()) :: {:ok, State.t()} | {:error, term()}
   def update_data(%State{} = state, data_path, raw_value, meta \\ %{}) do
-    with {:ok, updated_data} <- Data.put(state.data, data_path, raw_value) do
+    schema =
+      case Schema.resolve_at_data_path(state.schema, data_path) do
+        {:ok, fragment} -> fragment
+        {:error, _} -> nil
+      end
+
+    coerced_value = Coercion.coerce(raw_value, schema, state.opts)
+
+    with {:ok, updated_data} <- Data.put(state.data, data_path, coerced_value) do
       touched = maybe_touch(state.touched, data_path, meta)
       raw_inputs = Map.delete(state.raw_inputs, data_path)
 
       {:ok, %State{state | data: updated_data, touched: touched, raw_inputs: raw_inputs}}
     end
+  end
+
+  @spec touch(State.t(), String.t()) :: {:ok, State.t()} | {:error, term()}
+  def touch(%State{} = state, data_path) when is_binary(data_path) do
+    touched = MapSet.put(state.touched, data_path)
+    {:ok, %State{state | touched: touched}}
   end
 
   defp normalize_opts(nil), do: %{}

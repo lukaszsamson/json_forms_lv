@@ -44,6 +44,6 @@ defmodule JsonFormsLV.SchemaTest do
 
     assert {:ok, %{"type" => "string"}} = Schema.resolve_at_data_path(schema, "items.0.name")
     assert {:ok, %{"type" => "string"}} = Schema.resolve_at_data_path(schema, "pair.0.left")
-    assert {:error, _} = Schema.resolve_at_data_path(schema, "items.2")
+    assert {:ok, %{"type" => "object"}} = Schema.resolve_at_data_path(schema, "items.2")
   end
 end

@@ -8,7 +8,15 @@ defmodule JsonFormsLV.Dispatch do
   @spec kind_for_uischema(map()) :: :control | :layout | :unknown
   def kind_for_uischema(%{"type" => "Control"}), do: :control
 
-  def kind_for_uischema(%{"type" => type}) when type in ["VerticalLayout", "HorizontalLayout"] do
+  def kind_for_uischema(%{"type" => type})
+      when type in [
+             "VerticalLayout",
+             "HorizontalLayout",
+             "Group",
+             "Label",
+             "Categorization",
+             "Category"
+           ] do
     :layout
   end
 

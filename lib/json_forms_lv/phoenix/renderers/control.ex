@@ -20,8 +20,8 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
 
     assigns =
       assigns
-      |> assign(:label, label)
-      |> assign(:input_id, input_id)
+      |> Map.put(:label, label)
+      |> Map.put(:input_id, input_id)
 
     cell_entry =
       Dispatch.pick_renderer(
@@ -57,8 +57,8 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
 
     assigns =
       assigns
-      |> assign(:cell_module, cell_module)
-      |> assign(:cell_assigns, cell_assigns)
+      |> Map.put(:cell_module, cell_module)
+      |> Map.put(:cell_assigns, cell_assigns)
 
     ~H"""
     <%= if @visible? do %>

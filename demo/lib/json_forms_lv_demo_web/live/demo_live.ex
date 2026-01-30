@@ -1,7 +1,7 @@
 defmodule JsonFormsLvDemoWeb.DemoLive do
   use JsonFormsLvDemoWeb, :live_view
 
-  alias JsonFormsLV.Engine
+  alias JsonFormsLV.{Engine, Event}
 
   import JsonFormsLV.Phoenix.Components, only: [json_forms: 1]
 
@@ -25,13 +25,27 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   end
 
   @impl true
-  def handle_event("jf:change", %{"path" => path} = params, socket) do
-    value = Map.get(params, "value")
-    meta = Map.get(params, "meta", %{})
+  def handle_event("jf:change", params, socket) do
+    case Event.extract_change(params) do
+      {:ok, %{path: path, value: value, meta: meta}} ->
+        case Engine.update_data(socket.assigns.state, path, value, meta) do
+          {:ok, state} ->
+            {:noreply, assign(socket, state: state, data: state.data)}
 
-    case Engine.update_data(socket.assigns.state, path, value, meta) do
-      {:ok, state} ->
-        {:noreply, assign(socket, state: state, data: state.data)}
+          {:error, _reason} ->
+            {:noreply, socket}
+        end
+
+      {:error, _reason} ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("jf:blur", params, socket) do
+    case Event.extract_blur(params) do
+      {:ok, %{path: path}} ->
+        {:ok, state} = Engine.touch(socket.assigns.state, path)
+        {:noreply, assign(socket, state: state)}
 
       {:error, _reason} ->
         {:noreply, socket}

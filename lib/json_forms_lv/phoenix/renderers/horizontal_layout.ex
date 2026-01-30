@@ -16,7 +16,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.HorizontalLayout do
   @impl JsonFormsLV.Renderer
   def render(assigns) do
     elements = Map.get(assigns.uischema, "elements", [])
-    assigns = assign(assigns, :elements, elements)
+    assigns = Map.put(assigns, :elements, elements)
 
     ~H"""
     <%= if @visible? do %>
