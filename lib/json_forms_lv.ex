@@ -1,6 +1,6 @@
-defmodule JsonFormLv do
+defmodule JsonFormsLv do
   @moduledoc """
-  Documentation for `JsonFormLv`.
+  Documentation for `JsonFormsLv`.
   """
 
   @doc """
@@ -8,7 +8,7 @@ defmodule JsonFormLv do
 
   ## Examples
 
-      iex> JsonFormLv.hello()
+      iex> JsonFormsLv.hello()
       :world
 
   """

@@ -1,4 +1,4 @@
-defmodule JsonFormLvDemoWeb.CoreComponents do
+defmodule JsonFormsLvDemoWeb.CoreComponents do
   @moduledoc """
   Provides core UI components.
 
@@ -27,7 +27,7 @@ defmodule JsonFormLvDemoWeb.CoreComponents do
 
   """
   use Phoenix.Component
-  use Gettext, backend: JsonFormLvDemoWeb.Gettext
+  use Gettext, backend: JsonFormsLvDemoWeb.Gettext
 
   alias Phoenix.LiveView.JS
 
@@ -483,9 +483,9 @@ defmodule JsonFormLvDemoWeb.CoreComponents do
     # with our gettext backend as first argument. Translations are
     # available in the errors.po file (as we use the "errors" domain).
     if count = opts[:count] do
-      Gettext.dngettext(JsonFormLvDemoWeb.Gettext, "errors", msg, msg, count, opts)
+      Gettext.dngettext(JsonFormsLvDemoWeb.Gettext, "errors", msg, msg, count, opts)
     else
-      Gettext.dgettext(JsonFormLvDemoWeb.Gettext, "errors", msg, opts)
+      Gettext.dgettext(JsonFormsLvDemoWeb.Gettext, "errors", msg, opts)
     end
   end
 

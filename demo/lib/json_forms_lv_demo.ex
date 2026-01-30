@@ -1,6 +1,6 @@
-defmodule JsonFormLvDemo do
+defmodule JsonFormsLvDemo do
   @moduledoc """
-  JsonFormLvDemo keeps the contexts that define your domain
+  JsonFormsLvDemo keeps the contexts that define your domain
   and business logic.
 
   Contexts are also responsible for managing your data, regardless

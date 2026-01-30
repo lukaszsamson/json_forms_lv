@@ -1,4 +1,4 @@
-# JsonFormLvDemo
+# JsonFormsLvDemo
 
 To start your Phoenix server:
 

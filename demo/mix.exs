@@ -1,9 +1,9 @@
-defmodule JsonFormLvDemo.MixProject do
+defmodule JsonFormsLvDemo.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :json_form_lv_demo,
+      app: :json_forms_lv_demo,
       version: "0.1.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -20,7 +20,7 @@ defmodule JsonFormLvDemo.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {JsonFormLvDemo.Application, []},
+      mod: {JsonFormsLvDemo.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -76,10 +76,10 @@ defmodule JsonFormLvDemo.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind json_form_lv_demo", "esbuild json_form_lv_demo"],
+      "assets.build": ["compile", "tailwind json_forms_lv_demo", "esbuild json_forms_lv_demo"],
       "assets.deploy": [
-        "tailwind json_form_lv_demo --minify",
-        "esbuild json_form_lv_demo --minify",
+        "tailwind json_forms_lv_demo --minify",
+        "esbuild json_forms_lv_demo --minify",
         "phx.digest"
       ],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]

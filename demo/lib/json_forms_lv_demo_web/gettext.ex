@@ -1,4 +1,4 @@
-defmodule JsonFormLvDemoWeb.Gettext do
+defmodule JsonFormsLvDemoWeb.Gettext do
   @moduledoc """
   A module providing Internationalization with a gettext-based API.
 
@@ -6,7 +6,7 @@ defmodule JsonFormLvDemoWeb.Gettext do
   that you can use in your application. To use this Gettext backend module,
   call `use Gettext` and pass it as an option:
 
-      use Gettext, backend: JsonFormLvDemoWeb.Gettext
+      use Gettext, backend: JsonFormsLvDemoWeb.Gettext
 
       # Simple translation
       gettext("Here is the string to translate")
@@ -21,5 +21,5 @@ defmodule JsonFormLvDemoWeb.Gettext do
 
   See the [Gettext Docs](https://hexdocs.pm/gettext) for detailed usage.
   """
-  use Gettext.Backend, otp_app: :json_form_lv_demo
+  use Gettext.Backend, otp_app: :json_forms_lv_demo
 end

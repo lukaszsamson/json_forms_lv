@@ -6,7 +6,7 @@ import Config
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-config :json_form_lv_demo, JsonFormLvDemoWeb.Endpoint,
+config :json_forms_lv_demo, JsonFormsLvDemoWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}],
@@ -15,8 +15,8 @@ config :json_form_lv_demo, JsonFormLvDemoWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "S6GAhfqoz8ICabM0aeG4P4EY5IYVDrOo0/KaZKMKDwV4ehu15R3y5MASushUP1qj",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:json_form_lv_demo, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:json_form_lv_demo, ~w(--watch)]}
+    esbuild: {Esbuild, :install_and_run, [:json_forms_lv_demo, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:json_forms_lv_demo, ~w(--watch)]}
   ]
 
 # ## SSL Support
@@ -43,7 +43,7 @@ config :json_form_lv_demo, JsonFormLvDemoWeb.Endpoint,
 # different ports.
 
 # Reload browser tabs when matching files change.
-config :json_form_lv_demo, JsonFormLvDemoWeb.Endpoint,
+config :json_forms_lv_demo, JsonFormsLvDemoWeb.Endpoint,
   live_reload: [
     web_console_logger: true,
     patterns: [
@@ -52,13 +52,13 @@ config :json_form_lv_demo, JsonFormLvDemoWeb.Endpoint,
       # Gettext translations
       ~r"priv/gettext/.*\.po$"E,
       # Router, Controllers, LiveViews and LiveComponents
-      ~r"lib/json_form_lv_demo_web/router\.ex$"E,
-      ~r"lib/json_form_lv_demo_web/(controllers|live|components)/.*\.(ex|heex)$"E
+      ~r"lib/json_forms_lv_demo_web/router\.ex$"E,
+      ~r"lib/json_forms_lv_demo_web/(controllers|live|components)/.*\.(ex|heex)$"E
     ]
   ]
 
 # Enable dev routes for dashboard and mailbox
-config :json_form_lv_demo, dev_routes: true
+config :json_forms_lv_demo, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"

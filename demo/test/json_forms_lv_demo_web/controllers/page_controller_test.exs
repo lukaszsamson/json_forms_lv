@@ -1,5 +1,5 @@
-defmodule JsonFormLvDemoWeb.PageControllerTest do
-  use JsonFormLvDemoWeb.ConnCase
+defmodule JsonFormsLvDemoWeb.PageControllerTest do
+  use JsonFormsLvDemoWeb.ConnCase
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")

@@ -1,4 +1,4 @@
-# JsonFormLv
+# JsonFormsLv
 
 **TODO: Add description**
 
@@ -10,12 +10,12 @@ by adding `json_form_lv` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:json_form_lv, "~> 0.1.0"}
+    {:json_forms_lv, "~> 0.1.0"}
   ]
 end
 ```
 
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/json_form_lv>.
+be found at <https://hexdocs.pm/json_forms_lv>.
 

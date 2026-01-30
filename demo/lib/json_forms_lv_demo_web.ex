@@ -1,12 +1,12 @@
-defmodule JsonFormLvDemoWeb do
+defmodule JsonFormsLvDemoWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, components, channels, and so on.
 
   This can be used in your application as:
 
-      use JsonFormLvDemoWeb, :controller
-      use JsonFormLvDemoWeb, :html
+      use JsonFormsLvDemoWeb, :controller
+      use JsonFormsLvDemoWeb, :html
 
   The definitions below will be executed for every controller,
   component, etc, so keep them short and clean, focused
@@ -40,7 +40,7 @@ defmodule JsonFormLvDemoWeb do
     quote do
       use Phoenix.Controller, formats: [:html, :json]
 
-      use Gettext, backend: JsonFormLvDemoWeb.Gettext
+      use Gettext, backend: JsonFormsLvDemoWeb.Gettext
 
       import Plug.Conn
 
@@ -80,16 +80,16 @@ defmodule JsonFormLvDemoWeb do
   defp html_helpers do
     quote do
       # Translation
-      use Gettext, backend: JsonFormLvDemoWeb.Gettext
+      use Gettext, backend: JsonFormsLvDemoWeb.Gettext
 
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components
-      import JsonFormLvDemoWeb.CoreComponents
+      import JsonFormsLvDemoWeb.CoreComponents
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS
-      alias JsonFormLvDemoWeb.Layouts
+      alias JsonFormsLvDemoWeb.Layouts
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())
@@ -99,9 +99,9 @@ defmodule JsonFormLvDemoWeb do
   def verified_routes do
     quote do
       use Phoenix.VerifiedRoutes,
-        endpoint: JsonFormLvDemoWeb.Endpoint,
-        router: JsonFormLvDemoWeb.Router,
-        statics: JsonFormLvDemoWeb.static_paths()
+        endpoint: JsonFormsLvDemoWeb.Endpoint,
+        router: JsonFormsLvDemoWeb.Router,
+        statics: JsonFormsLvDemoWeb.static_paths()
     end
   end
 
