@@ -5,9 +5,14 @@ defmodule JsonFormsLV.Rules do
 
   alias JsonFormsLV.{Data, Path}
 
+  require Logger
+
   @spec evaluate(map(), term(), map() | nil, keyword()) :: map()
   def evaluate(uischema, data, validator, validator_opts \\ []) when is_map(uischema) do
-    traverse(uischema, data, validator, validator_opts, "", [], %{})
+    {rule_state, _cache} =
+      traverse(uischema, data, validator, validator_opts, "", [], %{}, %{})
+
+    rule_state
   end
 
   @spec element_key(map(), [non_neg_integer()]) :: String.t()
@@ -35,23 +40,32 @@ defmodule JsonFormsLV.Rules do
     element_key <> "|" <> path
   end
 
-  defp traverse(uischema, data, validator, validator_opts, parent_path, element_path, acc) do
+  defp traverse(uischema, data, validator, validator_opts, parent_path, element_path, acc, cache) do
     path = element_path_for(uischema, parent_path)
     element_key = element_key(uischema, element_path)
     render_key = render_key(element_key, path)
 
-    rule_state = rule_state_for(uischema, data, validator, validator_opts)
+    {rule_state, cache} = rule_state_for(uischema, data, validator, validator_opts, cache)
     acc = Map.put(acc, render_key, rule_state)
 
     case Map.get(uischema, "elements") do
       elements when is_list(elements) ->
         Enum.with_index(elements)
-        |> Enum.reduce(acc, fn {child, index}, acc ->
-          traverse(child, data, validator, validator_opts, path, element_path ++ [index], acc)
+        |> Enum.reduce({acc, cache}, fn {child, index}, {acc, cache} ->
+          traverse(
+            child,
+            data,
+            validator,
+            validator_opts,
+            path,
+            element_path ++ [index],
+            acc,
+            cache
+          )
         end)
 
       _ ->
-        acc
+        {acc, cache}
     end
   end
 
@@ -62,53 +76,84 @@ defmodule JsonFormsLV.Rules do
 
   defp element_path_for(_uischema, parent_path), do: parent_path
 
-  defp rule_state_for(%{"rule" => rule}, data, validator, validator_opts) when is_map(rule) do
+  defp rule_state_for(%{"rule" => rule}, data, validator, validator_opts, cache)
+       when is_map(rule) do
     effect = Map.get(rule, "effect")
     condition = Map.get(rule, "condition", %{})
     fail_when_undefined = Map.get(rule, "failWhenUndefined", false)
 
-    condition_true? =
-      condition_true?(condition, data, validator, validator_opts, fail_when_undefined)
+    {condition_true?, cache} =
+      condition_true?(condition, data, validator, validator_opts, fail_when_undefined, cache)
 
-    apply_effect(effect, condition_true?)
+    {apply_effect(effect, condition_true?), cache}
   end
 
-  defp rule_state_for(_uischema, _data, _validator, _validator_opts),
-    do: %{visible?: true, enabled?: true}
+  defp rule_state_for(_uischema, _data, _validator, _validator_opts, cache),
+    do: {%{visible?: true, enabled?: true}, cache}
 
   defp condition_true?(
          %{"scope" => scope, "schema" => schema},
          data,
          validator,
          opts,
-         fail_when_undefined
+         fail_when_undefined,
+         cache
        )
        when is_binary(scope) and is_map(schema) do
     path = Path.schema_pointer_to_data_path(scope)
 
     case Data.get(data, path) do
       {:ok, value} ->
-        valid_schema?(schema, value, validator, opts)
+        valid_schema?(schema, value, validator, opts, cache)
 
       {:error, _} ->
-        not fail_when_undefined
+        {not fail_when_undefined, cache}
     end
   end
 
-  defp condition_true?(_condition, _data, _validator, _opts, _fail_when_undefined), do: false
+  defp condition_true?(%{"type" => type} = condition, _data, _validator, _opts, _fail, cache)
+       when type in ["AND", "OR"] do
+    Logger.warning("Unsupported composed rule condition",
+      condition_type: type,
+      condition: condition
+    )
 
-  defp valid_schema?(_schema, _value, nil, _opts), do: false
+    {false, cache}
+  end
 
-  defp valid_schema?(schema, value, validator, opts) when is_map(validator) do
+  defp condition_true?(_condition, _data, _validator, _opts, _fail_when_undefined, cache),
+    do: {false, cache}
+
+  defp valid_schema?(_schema, _value, nil, _opts, cache), do: {false, cache}
+
+  defp valid_schema?(schema, value, validator, opts, cache) when is_map(validator) do
     module = validator.module
     validator_opts = opts || []
 
-    case module.compile(schema, validator_opts) do
-      {:ok, compiled} ->
-        module.validate(compiled, value, validator_opts) == []
+    {compiled, cache} = fetch_compiled(schema, module, validator_opts, cache)
 
-      {:error, _} ->
-        false
+    result =
+      case compiled do
+        {:ok, compiled} -> module.validate(compiled, value, validator_opts) == []
+        :error -> false
+      end
+
+    {result, cache}
+  end
+
+  defp fetch_compiled(schema, module, opts, cache) do
+    case cache do
+      %{^schema => compiled} ->
+        {compiled, cache}
+
+      _ ->
+        compiled =
+          case module.compile(schema, opts) do
+            {:ok, compiled} -> {:ok, compiled}
+            {:error, _} -> :error
+          end
+
+        {compiled, Map.put(cache, schema, compiled)}
     end
   end
 

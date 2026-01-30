@@ -6,6 +6,8 @@ defmodule JsonFormsLV.Event do
   @spec extract_change(map(), keyword()) ::
           {:ok, %{path: String.t(), value: term(), meta: map()}} | {:error, term()}
   def extract_change(params, opts \\ []) when is_map(params) do
+    params = normalize_event_params(params)
+
     with {:ok, path} <- extract_path(params, opts) do
       value = extract_value(params, path)
       meta = Map.get(params, "meta", %{})
@@ -16,6 +18,8 @@ defmodule JsonFormsLV.Event do
   @spec extract_blur(map(), keyword()) ::
           {:ok, %{path: String.t(), meta: map()}} | {:error, term()}
   def extract_blur(params, opts \\ []) when is_map(params) do
+    params = normalize_event_params(params)
+
     with {:ok, path} <- extract_path(params, opts) do
       meta = Map.get(params, "meta", %{})
       {:ok, %{path: path, meta: meta}}
@@ -41,6 +45,19 @@ defmodule JsonFormsLV.Event do
       {:ok, value} -> value
       :error -> Map.get(params, path)
     end
+  end
+
+  defp normalize_event_params(%{"value" => value} = params) when is_map(value) do
+    value_params = normalize_value_params(value)
+    Map.merge(value_params, Map.delete(params, "value"))
+  end
+
+  defp normalize_event_params(params), do: params
+
+  defp normalize_value_params(value) do
+    Enum.reduce(value, %{}, fn {key, val}, acc ->
+      Map.put(acc, to_string(key), val)
+    end)
   end
 
   defp target_to_path([form_key | rest], form_key) do
