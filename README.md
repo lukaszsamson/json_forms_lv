@@ -161,6 +161,8 @@ Override the resolver with `opts[:uischema_resolver]` when needed.
 - `suggestion`: list of suggestion values to render a `<datalist>` for string/number inputs.
 - `autocomplete`: when `true` for enum controls, renders a text input with datalist options;
   for string/number inputs it sets the HTML `autocomplete` attribute (boolean or string).
+- `toggle`: render booleans as a switch-style checkbox.
+- `slider`: render numbers as a range input using schema `minimum`/`maximum`/`multipleOf`.
 - Date/time picker options: `dateFormat`, `dateSaveFormat`, `timeFormat`, `timeSaveFormat`,
   `dateTimeFormat`, `dateTimeSaveFormat`, `ampm`, `views`, `clearLabel`, `cancelLabel`, `okLabel`.
   These are exposed as `data-jf-*` attributes on native inputs for custom picker hooks.

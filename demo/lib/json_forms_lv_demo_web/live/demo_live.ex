@@ -296,6 +296,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               Rule NOT
             </button>
             <button
+              id="scenario-widgets"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="widgets"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "widgets" && "bg-zinc-900 text-white",
+                @scenario != "widgets" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Widgets
+            </button>
+            <button
               id="scenario-categorization"
               type="button"
               phx-click="select_scenario"
@@ -987,6 +1000,47 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp widgets_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "enabled" => %{
+          "type" => "boolean",
+          "title" => "Enabled"
+        },
+        "volume" => %{
+          "type" => "number",
+          "title" => "Volume",
+          "minimum" => 0,
+          "maximum" => 10,
+          "multipleOf" => 0.5
+        }
+      }
+    }
+  end
+
+  defp widgets_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/enabled",
+          "options" => %{
+            "toggle" => true
+          }
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/volume",
+          "options" => %{
+            "slider" => true
+          }
+        }
+      ]
+    }
+  end
+
   defp live_component_schema do
     %{
       "type" => "object",
@@ -1495,6 +1549,14 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       schema: rule_not_schema(),
       uischema: rule_not_uischema(),
       data: %{"flag" => false, "note" => "Visible when flag is false"}
+    })
+  end
+
+  defp scenario_config("widgets") do
+    base_config(%{
+      schema: widgets_schema(),
+      uischema: widgets_uischema(),
+      data: %{"enabled" => true, "volume" => 4.5}
     })
   end
 

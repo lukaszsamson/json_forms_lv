@@ -15,6 +15,9 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
   def render(assigns) do
     change_event = if assigns.binding == :per_input, do: assigns.on_change
     blur_event = assigns.on_blur
+    toggle? = Map.get(assigns.options || %{}, "toggle") == true
+    role = if toggle?, do: "switch"
+    aria_checked = if toggle?, do: to_string(assigns.value == true)
 
     assigns =
       assign(assigns,
@@ -22,6 +25,9 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
         disabled?: disabled?(assigns),
         change_event: change_event,
         blur_event: blur_event,
+        toggle?: toggle?,
+        role: role,
+        aria_checked: aria_checked,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid],
         aria_required: assigns[:aria_required]
@@ -36,6 +42,9 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
       value="true"
       checked={@checked?}
       disabled={@disabled?}
+      role={@role}
+      aria-checked={@aria_checked}
+      data-jf-toggle={@toggle?}
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}
       aria-required={@aria_required}

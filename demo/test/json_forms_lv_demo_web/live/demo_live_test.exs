@@ -168,6 +168,16 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     refute has_element?(view, "input[name='note']")
   end
 
+  test "widgets scenario renders toggle and slider", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "widgets"})
+
+    assert has_element?(view, "#demo-scenario", "widgets")
+    assert has_element?(view, "input[name='enabled'][role='switch']")
+    assert has_element?(view, "input[name='volume'][type='range']")
+  end
+
   test "formats scenario preserves date values across changes", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 

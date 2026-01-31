@@ -22,6 +22,8 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
     suggestions = suggestions(assigns)
     datalist_id = if suggestions != [], do: "#{assigns.id}-list"
     autocomplete = autocomplete(assigns)
+    slider? = Map.get(assigns.options || %{}, "slider") == true
+    {min, max, step} = slider_attrs(assigns.schema)
 
     value =
       case assigns.value do
@@ -40,6 +42,10 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
         suggestions: suggestions,
         datalist_id: datalist_id,
         autocomplete: autocomplete,
+        slider?: slider?,
+        min: min,
+        max: max,
+        step: step,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid],
         aria_required: assigns[:aria_required]
@@ -49,12 +55,15 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
     <input
       id={@id}
       name={@path}
-      type="text"
+      type={if @slider?, do: "range", else: "text"}
       inputmode={@inputmode}
       value={@value}
       placeholder={@placeholder}
       list={@datalist_id}
       autocomplete={@autocomplete}
+      min={@min}
+      max={@max}
+      step={@step}
       disabled={@disabled?}
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}
@@ -106,6 +115,28 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
       true -> "on"
       false -> "off"
       value when is_binary(value) -> value
+      _ -> nil
+    end
+  end
+
+  defp slider_attrs(schema) do
+    min = number_attr(schema, "minimum")
+    max = number_attr(schema, "maximum")
+
+    step =
+      cond do
+        is_number(schema["multipleOf"]) -> schema["multipleOf"]
+        schema["type"] == "integer" -> 1
+        true -> "any"
+      end
+
+    {min, max, step}
+  end
+
+  defp number_attr(schema, key) do
+    case Map.get(schema, key) do
+      value when is_integer(value) -> value
+      value when is_float(value) -> value
       _ -> nil
     end
   end

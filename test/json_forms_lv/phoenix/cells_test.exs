@@ -4,11 +4,13 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
   import Phoenix.LiveViewTest
 
   alias JsonFormsLV.Phoenix.Cells.{
+    BooleanInput,
     DateInput,
     DateTimeInput,
     EnumRadio,
     EnumSelect,
     MultilineInput,
+    NumberInput,
     StringInput,
     TimeInput
   }
@@ -235,6 +237,32 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
 
     assert html =~ ~s/maxlength="5"/
     assert html =~ ~s/size="5"/
+  end
+
+  test "boolean input renders toggle switch" do
+    assigns = base_assigns(%{value: true, options: %{"toggle" => true}})
+
+    html = render_component(&BooleanInput.render/1, assigns)
+
+    assert html =~ ~s/role="switch"/
+    assert html =~ ~s/data-jf-toggle="true"/
+    assert html =~ ~s/aria-checked="true"/
+  end
+
+  test "number input renders slider" do
+    assigns =
+      base_assigns(%{
+        schema: %{"type" => "number", "minimum" => 0, "maximum" => 10, "multipleOf" => 0.5},
+        value: 2.5,
+        options: %{"slider" => true}
+      })
+
+    html = render_component(&NumberInput.render/1, assigns)
+
+    assert html =~ ~s/type="range"/
+    assert html =~ ~s/min="0"/
+    assert html =~ ~s/max="10"/
+    assert html =~ ~s/step="0.5"/
   end
 
   test "enum select renders autocomplete datalist" do
