@@ -144,6 +144,7 @@
 .jf-control input[type="time"],
 .jf-control input[type="datetime-local"] {
   width: 100%;
+  height: 2.625rem;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -152,6 +153,7 @@
   background-color: var(--color-base-100);
   color: var(--color-base-content);
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  box-sizing: border-box;
 }
 
 .jf-control input[type="text"]:focus,
