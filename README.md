@@ -209,6 +209,12 @@ Loading/error state is exposed via `state.dynamic_enums_status` and
 It also supports `:refresh_enums`, `{:refresh_enums, opts}`, `{:add_renderer, kind, entry}`,
 `{:remove_renderer, kind, module}`, and `{:set_registry, registry}`.
 
+### Middleware hooks
+
+You can wrap `Engine.dispatch/2` with middleware by passing a `:middleware` list in options
+when initializing the state. Middleware functions receive `(state, action, next)` and can
+short‑circuit or modify actions before calling `next.(state, action)`.
+
 ### Async schema loading
 
 For async schema/uischema loading in LiveView, use `assign_async/3` and initialize

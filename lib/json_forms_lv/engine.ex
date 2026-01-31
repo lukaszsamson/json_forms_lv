@@ -511,6 +511,28 @@ defmodule JsonFormsLV.Engine do
   """
   @spec dispatch(State.t(), term()) :: {:ok, State.t()} | {:error, term()}
   def dispatch(%State{} = state, action) do
+    middlewares =
+      Map.get(state.opts || %{}, :middleware) || Map.get(state.opts || %{}, "middleware") || []
+
+    dispatch_with_middlewares(state, action, middlewares)
+  end
+
+  defp dispatch_with_middlewares(state, action, middlewares) when is_list(middlewares) do
+    reducer = fn state, action -> dispatch_reduce(state, action) end
+
+    composed =
+      Enum.reduce(Enum.reverse(middlewares), reducer, fn middleware, next ->
+        fn state, action -> call_middleware(middleware, state, action, next) end
+      end)
+
+    composed.(state, action)
+  end
+
+  defp dispatch_with_middlewares(state, action, _middlewares) do
+    dispatch_reduce(state, action)
+  end
+
+  defp dispatch_reduce(state, action) do
     case action do
       {:update_data, path, raw_value, meta} -> update_data(state, path, raw_value, meta)
       {:touch, path} -> touch(state, path)
@@ -533,6 +555,22 @@ defmodule JsonFormsLV.Engine do
       {:update_core, updates} -> update_core(state, updates)
       _ -> {:error, {:unsupported_action, action}}
     end
+  end
+
+  defp call_middleware(middleware, state, action, next) do
+    case middleware do
+      fun when is_function(fun, 3) ->
+        fun.(state, action, next)
+
+      {mod, fun} when is_atom(mod) and is_atom(fun) ->
+        apply(mod, fun, [state, action, next])
+
+      _ ->
+        next.(state, action)
+    end
+  rescue
+    error ->
+      {:error, {:middleware_error, error}}
   end
 
   defp normalize_opts(nil), do: %{}
@@ -592,11 +630,11 @@ defmodule JsonFormsLV.Engine do
     case Map.get(schema, "x-dependents") || Map.get(schema, "x_dependents") do
       list when is_list(list) ->
         list
-        |> Enum.map(&to_string/1)
+        |> Enum.map(&normalize_dependent_path/1)
         |> Enum.reject(&(&1 == ""))
 
       value when is_binary(value) ->
-        [value]
+        [normalize_dependent_path(value)]
 
       _ ->
         []
@@ -604,6 +642,16 @@ defmodule JsonFormsLV.Engine do
   end
 
   defp dependent_paths(_schema), do: []
+
+  defp normalize_dependent_path(value) do
+    value = to_string(value)
+
+    if String.starts_with?(value, "#/") do
+      Path.schema_pointer_to_data_path(value)
+    else
+      value
+    end
+  end
 
   defp clear_dependents(data, []), do: {data, []}
 
