@@ -1,6 +1,9 @@
 defmodule JsonFormsLV.SchemaResolvers.Default do
   @moduledoc """
   Default resolver that allows internal refs and rejects remote refs.
+
+  Internal `$ref` expansion is handled by the configured validator during
+  compilation.
   """
 
   @behaviour JsonFormsLV.SchemaResolver

@@ -138,12 +138,12 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
 
     assert has_element?(view, "#demo-scenario", "i18n")
     assert has_element?(view, "#demo-locale", "en")
-    assert has_element?(view, "#demo-json-forms-i18n-welcome-root", "Schedule")
+    assert has_element?(view, "[data-jf-label]", "Schedule")
 
     render_click(view, "set_locale", %{"locale" => "es"})
 
     assert has_element?(view, "#demo-locale", "es")
-    assert has_element?(view, "#demo-json-forms-i18n-welcome-root", "Horario")
+    assert has_element?(view, "[data-jf-label]", "Horario")
   end
 
   test "readonly scenario disables inputs", %{conn: conn} do
@@ -207,7 +207,7 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "#demo-scenario", "custom")
     assert has_element?(view, "input[name='message'][data-custom-cell='shout']")
     refute has_element?(view, "input[name='note'][data-custom-cell='shout']")
-    assert has_element?(view, "#demo-json-forms-Control-note[data-custom-control='callout']")
+    assert has_element?(view, "section[data-custom-control='callout']")
   end
 
   test "streaming arrays keep stable dom ids", %{conn: conn} do
@@ -266,7 +266,7 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     document = LazyHTML.from_fragment(html)
 
     containers =
-      LazyHTML.query(document, "#demo-json-forms-Control-tasks div[phx-update='stream']")
+      LazyHTML.query(document, "div[data-jf-control][data-jf-array] div[phx-update='stream']")
 
     Enum.count(containers) == 1
   end

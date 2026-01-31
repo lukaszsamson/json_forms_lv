@@ -27,6 +27,100 @@ defmodule JsonFormsLV.EngineTest do
              Engine.update_data(state, "items.5.name", "x", %{})
   end
 
+  test "validate_on change validates on updates" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{"name" => %{"type" => "string", "minLength" => 1}}
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, %{"name" => "Ada"}, %{validate_on: :change})
+
+    {:ok, state} = Engine.update_data(state, "name", "", %{})
+
+    assert Enum.any?(state.errors, &(&1.keyword == "minLength"))
+  end
+
+  test "validate_on blur defers change validation" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{"name" => %{"type" => "string", "minLength" => 1}}
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, %{"name" => "Ada"}, %{validate_on: :blur})
+
+    {:ok, state} = Engine.update_data(state, "name", "", %{})
+    assert state.errors == []
+
+    {:ok, state} = Engine.touch(state, "name")
+    assert Enum.any?(state.errors, &(&1.keyword == "minLength"))
+  end
+
+  test "validate_on submit defers blur validation" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{"name" => %{"type" => "string", "minLength" => 1}}
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, %{"name" => "Ada"}, %{validate_on: :submit})
+
+    {:ok, state} = Engine.update_data(state, "name", "", %{})
+    assert state.errors == []
+
+    {:ok, state} = Engine.touch(state, "name")
+    assert state.errors == []
+
+    {:ok, state} = Engine.touch_all(state)
+    assert Enum.any?(state.errors, &(&1.keyword == "minLength"))
+  end
+
+  test "init applies defaults when enabled" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "name" => %{"type" => "string", "default" => "Ada"},
+        "age" => %{"type" => "number"}
+      }
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, %{}, %{apply_defaults: true})
+
+    assert state.data == %{"name" => "Ada"}
+
+    {:ok, state} = Engine.init(schema, %{}, %{"name" => "Grace"}, %{apply_defaults: true})
+
+    assert state.data == %{"name" => "Grace"}
+  end
+
+  test "init applies defaults to array items" do
+    schema = %{
+      "type" => "array",
+      "items" => %{
+        "type" => "object",
+        "properties" => %{"tag" => %{"type" => "string", "default" => "new"}}
+      }
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, [%{}], %{apply_defaults: true})
+
+    assert state.data == [%{"tag" => "new"}]
+  end
+
+  test "init enforces max_data_bytes" do
+    assert {:error, {:max_data_bytes_exceeded, size, 1}} =
+             Engine.init(%{}, %{}, %{"name" => "Ada"}, %{max_data_bytes: 1})
+
+    assert size > 1
+  end
+
+  test "update_data enforces max_data_bytes" do
+    {:ok, state} = Engine.init(%{}, %{}, %{}, %{max_data_bytes: 200})
+
+    big_value = String.duplicate("a", 500)
+
+    assert {:error, {:max_data_bytes_exceeded, _size, 200}} =
+             Engine.update_data(state, "payload", big_value, %{})
+  end
+
   test "touch_all marks submitted and touched" do
     {:ok, state} = Engine.init(%{}, %{}, %{"name" => "Ada"}, %{})
 

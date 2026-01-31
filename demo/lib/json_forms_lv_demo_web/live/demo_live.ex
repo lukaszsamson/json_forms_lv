@@ -219,6 +219,20 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               Formats
             </button>
             <button
+              id="scenario-categorization"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="categorization"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "categorization" && "bg-zinc-900 text-white",
+                @scenario != "categorization" &&
+                  "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Categories
+            </button>
+            <button
               id="scenario-arrays"
               type="button"
               phx-click="select_scenario"
@@ -603,6 +617,88 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp categorization_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "person" => %{
+          "type" => "object",
+          "properties" => %{
+            "name" => %{"type" => "string", "title" => "Name"},
+            "title" => %{"type" => "string", "title" => "Title"},
+            "subscribed" => %{"type" => "boolean", "title" => "Subscribed"}
+          }
+        },
+        "project" => %{
+          "type" => "object",
+          "properties" => %{
+            "status" => %{
+              "type" => "string",
+              "title" => "Status",
+              "enum" => ["active", "paused", "complete"]
+            },
+            "priority" => %{
+              "type" => "number",
+              "title" => "Priority",
+              "enum" => [1, 2, 3]
+            },
+            "start_date" => %{"type" => "string", "format" => "date"},
+            "meeting" => %{"type" => "string", "format" => "date-time"}
+          }
+        },
+        "notes" => %{
+          "type" => "object",
+          "properties" => %{
+            "details" => %{"type" => "string", "title" => "Notes"}
+          }
+        }
+      }
+    }
+  end
+
+  defp categorization_uischema do
+    %{
+      "type" => "Categorization",
+      "options" => %{"defaultCategory" => 0},
+      "elements" => [
+        %{
+          "type" => "Category",
+          "label" => "Profile",
+          "elements" => [
+            %{"type" => "Control", "scope" => "#/properties/person/properties/name"},
+            %{"type" => "Control", "scope" => "#/properties/person/properties/title"},
+            %{"type" => "Control", "scope" => "#/properties/person/properties/subscribed"}
+          ]
+        },
+        %{
+          "type" => "Category",
+          "label" => "Project",
+          "elements" => [
+            %{
+              "type" => "Control",
+              "scope" => "#/properties/project/properties/status",
+              "options" => %{"format" => "radio"}
+            },
+            %{"type" => "Control", "scope" => "#/properties/project/properties/priority"},
+            %{"type" => "Control", "scope" => "#/properties/project/properties/start_date"},
+            %{"type" => "Control", "scope" => "#/properties/project/properties/meeting"}
+          ]
+        },
+        %{
+          "type" => "Category",
+          "label" => "Notes",
+          "elements" => [
+            %{
+              "type" => "Control",
+              "scope" => "#/properties/notes/properties/details",
+              "options" => %{"multi" => true}
+            }
+          ]
+        }
+      ]
+    }
+  end
+
   defp arrays_uischema do
     %{
       "type" => "VerticalLayout",
@@ -731,6 +827,23 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         "start_date" => "2025-01-30",
         "meeting" => "2025-01-30T10:00",
         "notes" => ""
+      }
+    })
+  end
+
+  defp scenario_config("categorization") do
+    base_config(%{
+      schema: categorization_schema(),
+      uischema: categorization_uischema(),
+      data: %{
+        "person" => %{"name" => "Ada", "title" => "Engineer", "subscribed" => true},
+        "project" => %{
+          "status" => "active",
+          "priority" => 2,
+          "start_date" => "2025-02-01",
+          "meeting" => "2025-02-01T09:00"
+        },
+        "notes" => %{"details" => "Keep tabs on deliverables"}
       }
     })
   end

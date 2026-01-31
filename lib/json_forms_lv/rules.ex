@@ -1,6 +1,11 @@
 defmodule JsonFormsLV.Rules do
   @moduledoc """
   Evaluate UISchema rules for visibility and enabled state.
+
+  Rule state reflects element-level rules; parent visibility and enabled
+  inheritance is applied at render time by the Phoenix components.
+
+  Composed rule conditions (AND/OR) are logged and treated as false.
   """
 
   alias JsonFormsLV.{Data, Path}
@@ -183,25 +188,25 @@ defmodule JsonFormsLV.Rules do
 
   defp valid_schema?(_schema, _value, nil, _opts, cache), do: {false, cache}
 
-  defp valid_schema?(
-         %{"$ref" => ref} = schema,
-         value,
-         %{module: module, compiled: compiled},
-         opts,
-         cache
-       )
-       when map_size(schema) == 1 and is_binary(ref) and not is_nil(compiled) do
-    if String.starts_with?(ref, "#") do
-      {module.validate_fragment(compiled, ref, value, opts) == [], cache}
-    else
-      {false, cache}
+  defp valid_schema?(schema, value, %{module: module} = validator, opts, cache)
+       when is_map(schema) do
+    validator_opts = opts || []
+
+    case schema do
+      %{"$ref" => ref} when map_size(schema) == 1 and is_binary(ref) ->
+        if String.starts_with?(ref, "#") and not is_nil(validator.compiled) and
+             function_exported?(module, :validate_fragment, 4) do
+          {module.validate_fragment(validator.compiled, ref, value, validator_opts) == [], cache}
+        else
+          valid_schema_via_compile(schema, value, module, validator_opts, cache)
+        end
+
+      _ ->
+        valid_schema_via_compile(schema, value, module, validator_opts, cache)
     end
   end
 
-  defp valid_schema?(schema, value, validator, opts, cache) when is_map(validator) do
-    module = validator.module
-    validator_opts = opts || []
-
+  defp valid_schema_via_compile(schema, value, module, validator_opts, cache) do
     {compiled, cache} = fetch_compiled(schema, module, validator_opts, cache)
 
     result =

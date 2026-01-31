@@ -1,6 +1,9 @@
 defmodule JsonFormsLV.Validators.JSV do
   @moduledoc """
   JSV-based validator adapter.
+
+  Internal `$ref` resolution is delegated to JSV during compilation. Validation
+  opts default to `cast: false` to avoid implicit type coercion.
   """
 
   alias JsonFormsLV.{Errors, Schema}

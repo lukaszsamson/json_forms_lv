@@ -186,6 +186,8 @@ defmodule JsonFormsLV.Phoenix.Components do
       ],
       layout_renderers: [
         JsonFormsLV.Phoenix.Renderers.Label,
+        JsonFormsLV.Phoenix.Renderers.Categorization,
+        JsonFormsLV.Phoenix.Renderers.Category,
         JsonFormsLV.Phoenix.Renderers.Group,
         JsonFormsLV.Phoenix.Renderers.VerticalLayout,
         JsonFormsLV.Phoenix.Renderers.HorizontalLayout
@@ -206,7 +208,14 @@ defmodule JsonFormsLV.Phoenix.Components do
   defp build_dispatch_assigns(assigns) do
     state = assigns.state
     config = merge_config(state.opts, assigns.config)
-    max_depth = Map.get(config, :max_depth, Limits.defaults().max_depth)
+
+    max_depth =
+      Map.get(config, :max_depth) || Map.get(config, "max_depth") ||
+        Limits.defaults().max_depth
+
+    max_elements =
+      Map.get(config, :max_elements) || Map.get(config, "max_elements") ||
+        Limits.defaults().max_elements
 
     {path, schema} = resolve_path_and_schema(assigns, state)
     instance_path = Path.data_path_to_instance_path(path)
@@ -260,7 +269,12 @@ defmodule JsonFormsLV.Phoenix.Components do
         render_key: render_key
       })
 
-    id = dom_id(assigns.form_id, assigns.uischema, path)
+    id = dom_id(assigns.form_id, render_key, assigns.uischema)
+
+    element_count =
+      if assigns.depth == 0 and is_integer(max_elements) and max_elements > 0 do
+        count_elements(assigns.uischema)
+      end
 
     if assigns.depth > max_depth do
       renderer = JsonFormsLV.Phoenix.Renderers.Unknown
@@ -269,43 +283,55 @@ defmodule JsonFormsLV.Phoenix.Components do
 
       %{renderer: renderer, renderer_assigns: renderer_assigns}
     else
-      kind = Dispatch.kind_for_uischema(assigns.uischema)
-      entry = Dispatch.pick_renderer(assigns.uischema, schema, assigns.registry, ctx, kind)
-      {renderer, renderer_opts} = entry || {JsonFormsLV.Phoenix.Renderers.Unknown, []}
+      if is_integer(element_count) and element_count > max_elements do
+        renderer = JsonFormsLV.Phoenix.Renderers.Unknown
 
-      errors_for_control = Errors.errors_for_control(state, path)
+        renderer_assigns =
+          assign(assigns,
+            id: id,
+            message: "Max render elements exceeded (#{element_count}/#{max_elements})"
+          )
 
-      show_errors? =
-        Errors.show_validator_errors?(state, path) ||
-          Errors.has_additional_errors?(errors_for_control)
+        %{renderer: renderer, renderer_assigns: renderer_assigns}
+      else
+        kind = Dispatch.kind_for_uischema(assigns.uischema)
+        entry = Dispatch.pick_renderer(assigns.uischema, schema, assigns.registry, ctx, kind)
+        {renderer, renderer_opts} = entry || {JsonFormsLV.Phoenix.Renderers.Unknown, []}
 
-      renderer_assigns =
-        assign(assigns,
-          id: id,
-          element_key: element_key,
-          render_key: render_key,
-          path: path,
-          instance_path: instance_path,
-          schema: schema,
-          root_schema: state.schema,
-          data: state.data,
-          value: value,
-          visible?: visible?,
-          enabled?: enabled?,
-          readonly?: state.readonly,
-          required?: required?,
-          options: options,
-          i18n: state.i18n,
-          config: config,
-          binding: assigns.binding,
-          streams: assigns.streams,
-          renderer_opts: renderer_opts,
-          ctx: ctx,
-          errors_for_control: errors_for_control,
-          show_errors?: show_errors?
-        )
+        errors_for_control = Errors.errors_for_control(state, path)
 
-      %{renderer: renderer, renderer_assigns: renderer_assigns}
+        show_errors? =
+          Errors.show_validator_errors?(state, path) ||
+            Errors.has_additional_errors?(errors_for_control)
+
+        renderer_assigns =
+          assign(assigns,
+            id: id,
+            element_key: element_key,
+            render_key: render_key,
+            path: path,
+            instance_path: instance_path,
+            schema: schema,
+            root_schema: state.schema,
+            data: state.data,
+            value: value,
+            visible?: visible?,
+            enabled?: enabled?,
+            readonly?: state.readonly,
+            required?: required?,
+            options: options,
+            i18n: state.i18n,
+            config: config,
+            binding: assigns.binding,
+            streams: assigns.streams,
+            renderer_opts: renderer_opts,
+            ctx: ctx,
+            errors_for_control: errors_for_control,
+            show_errors?: show_errors?
+          )
+
+        %{renderer: renderer, renderer_assigns: renderer_assigns}
+      end
     end
   end
 
@@ -373,7 +399,7 @@ defmodule JsonFormsLV.Phoenix.Components do
     Map.merge(config || %{}, overrides || %{})
   end
 
-  defp dom_id(form_id, uischema, path) do
+  defp dom_id(form_id, render_key, uischema) do
     base =
       case uischema do
         %{"id" => id} when is_binary(id) and id != "" -> id
@@ -381,13 +407,11 @@ defmodule JsonFormsLV.Phoenix.Components do
         _ -> "element"
       end
 
-    suffix =
-      case path do
-        "" -> "root"
-        _ -> path
-      end
+    hash =
+      :crypto.hash(:sha256, form_id <> "|" <> render_key)
+      |> Base.url_encode64(padding: false)
 
-    "#{form_id}-#{base}-#{sanitize_id(suffix)}"
+    "#{form_id}-#{sanitize_id(base)}-#{hash}"
   end
 
   defp sanitize_id(value) do
@@ -395,4 +419,12 @@ defmodule JsonFormsLV.Phoenix.Components do
     |> String.replace(".", "-")
     |> String.replace(~r/[^A-Za-z0-9_-]/, "-")
   end
+
+  defp count_elements(%{"elements" => elements}) when is_list(elements) do
+    Enum.reduce(elements, 1, fn element, acc ->
+      acc + count_elements(element)
+    end)
+  end
+
+  defp count_elements(_uischema), do: 1
 end

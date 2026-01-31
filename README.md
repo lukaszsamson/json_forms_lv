@@ -63,5 +63,17 @@ The library emits basic Telemetry events (all include `%{duration: t}`):
 
 - `[:json_forms_lv, :init]` — metadata: `validation_mode`
 - `[:json_forms_lv, :update_data]` — metadata: `path`, `result`
-- `[:json_forms_lv, :validate]` — metadata: `error_count`
+- `[:json_forms_lv, :validate]` — metadata: `error_count`, `rules_total`, `rules_evaluated`, `rules_incremental`, `rules_changed_paths`
 - `[:json_forms_lv, :dispatch]` — metadata: `kind`, `renderer`, `uischema_type`, `schema_type`, `path`
+
+### Validation timing
+
+Control when validation runs by setting `opts[:validate_on]` (default: `:change`).
+
+- `:change` — validate on every change
+- `:blur` — validate on blur and submit
+- `:submit` — validate only on submit
+
+### Defaults
+
+Enable `opts[:apply_defaults]` to apply JSON Schema defaults when initializing data.

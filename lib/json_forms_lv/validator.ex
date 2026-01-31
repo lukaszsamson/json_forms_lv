@@ -14,4 +14,6 @@ defmodule JsonFormsLV.Validator do
               value :: term(),
               opts :: keyword()
             ) :: [JsonFormsLV.Error.t()]
+
+  @optional_callbacks validate_fragment: 4
 end

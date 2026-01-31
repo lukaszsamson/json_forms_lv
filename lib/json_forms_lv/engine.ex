@@ -31,7 +31,9 @@ defmodule JsonFormsLV.Engine do
         validator_opts = Map.get(opts_with_limits, :validator_opts, [])
 
         with {:ok, resolved_schema} <- resolver.resolve(schema, opts_with_limits),
-             {:ok, compiled} <- validator.compile(resolved_schema, validator_opts) do
+             {:ok, compiled} <- validator.compile(resolved_schema, validator_opts),
+             data <- maybe_apply_defaults(data, resolved_schema, opts_with_limits),
+             :ok <- ensure_data_size(data, opts_with_limits) do
           state = %State{
             schema: resolved_schema,
             uischema: uischema,
@@ -43,7 +45,7 @@ defmodule JsonFormsLV.Engine do
           }
 
           state = init_array_ids(state)
-          state = validate_state(state, :all)
+          state = validate_state(state, :all, true)
 
           emit_telemetry(:init, started_at, %{validation_mode: state.validation_mode})
 
@@ -58,6 +60,7 @@ defmodule JsonFormsLV.Engine do
   @spec update_data(State.t(), String.t(), term(), map()) :: {:ok, State.t()} | {:error, term()}
   def update_data(%State{} = state, data_path, raw_value, meta \\ %{}) do
     started_at = System.monotonic_time()
+    validate? = should_validate?(state, :change, meta)
 
     schema =
       case Schema.resolve_at_data_path(state.schema, data_path) do
@@ -67,7 +70,8 @@ defmodule JsonFormsLV.Engine do
 
     case Coercion.coerce_with_raw(raw_value, schema, state.opts) do
       {:ok, coerced_value} ->
-        with {:ok, updated_data} <- Data.put(state.data, data_path, coerced_value) do
+        with {:ok, updated_data} <- Data.put(state.data, data_path, coerced_value),
+             :ok <- ensure_data_size(updated_data, state.opts) do
           touched = maybe_touch(state.touched, data_path, meta)
           submitted = maybe_submit(state.submitted, meta)
           raw_inputs = Map.delete(state.raw_inputs, data_path)
@@ -81,7 +85,7 @@ defmodule JsonFormsLV.Engine do
                 raw_inputs: raw_inputs
             }
 
-          state = validate_state(state, [data_path])
+          state = validate_state(state, [data_path], validate?)
 
           emit_telemetry(:update_data, started_at, %{path: data_path, result: :ok})
 
@@ -95,7 +99,8 @@ defmodule JsonFormsLV.Engine do
             {:error, _} -> nil
           end
 
-        with {:ok, updated_data} <- Data.put(state.data, data_path, previous_value) do
+        with {:ok, updated_data} <- Data.put(state.data, data_path, previous_value),
+             :ok <- ensure_data_size(updated_data, state.opts) do
           touched = maybe_touch(state.touched, data_path, meta)
           submitted = maybe_submit(state.submitted, meta)
           raw_inputs = Map.put(state.raw_inputs, data_path, raw_value)
@@ -109,7 +114,7 @@ defmodule JsonFormsLV.Engine do
                 raw_inputs: raw_inputs
             }
 
-          state = validate_state(state, [data_path])
+          state = validate_state(state, [data_path], validate?)
 
           emit_telemetry(:update_data, started_at, %{path: data_path, result: :ok})
 
@@ -124,7 +129,8 @@ defmodule JsonFormsLV.Engine do
   @spec touch(State.t(), String.t()) :: {:ok, State.t()} | {:error, term()}
   def touch(%State{} = state, data_path) when is_binary(data_path) do
     touched = MapSet.put(state.touched, data_path)
-    {:ok, validate_state(%State{state | touched: touched}, [])}
+    validate? = should_validate?(state, :blur, %{})
+    {:ok, validate_state(%State{state | touched: touched}, [], validate?)}
   end
 
   @doc """
@@ -133,23 +139,26 @@ defmodule JsonFormsLV.Engine do
   @spec add_item(State.t(), String.t(), map() | keyword()) :: {:ok, State.t()} | {:error, term()}
   def add_item(%State{} = state, data_path, opts \\ %{}) do
     opts = normalize_opts(opts)
+    validate? = should_validate?(state, :change, %{})
 
     with {:ok, array} <- get_array(state.data, data_path),
          {:ok, schema} <- Schema.resolve_at_data_path(state.schema, data_path) do
       index = normalize_index(Map.get(opts, :index) || Map.get(opts, "index"), length(array))
       item_schema = item_schema(schema, index)
       item = Map.get(opts, :item) || Map.get(opts, "item") || default_item(item_schema)
+      item = maybe_apply_defaults(item, item_schema, state.opts)
 
       new_array = List.insert_at(array, index, item)
 
-      with {:ok, updated_data} <- Data.put(state.data, data_path, new_array) do
+      with {:ok, updated_data} <- Data.put(state.data, data_path, new_array),
+           :ok <- ensure_data_size(updated_data, state.opts) do
         ids = array_ids_for(state, data_path, array)
         new_id = ensure_item_id(item, ids, state.opts)
         new_ids = List.insert_at(ids, index, new_id)
         array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
 
         state = %State{state | data: updated_data, array_ids: array_ids}
-        {:ok, validate_state(state, [data_path])}
+        {:ok, validate_state(state, [data_path], validate?)}
       end
     end
   end
@@ -159,17 +168,20 @@ defmodule JsonFormsLV.Engine do
   """
   @spec remove_item(State.t(), String.t(), term()) :: {:ok, State.t()} | {:error, term()}
   def remove_item(%State{} = state, data_path, index_or_id) do
+    validate? = should_validate?(state, :change, %{})
+
     with {:ok, array} <- get_array(state.data, data_path),
          {:ok, index} <- resolve_index(state, data_path, array, index_or_id) do
       new_array = List.delete_at(array, index)
 
-      with {:ok, updated_data} <- Data.put(state.data, data_path, new_array) do
+      with {:ok, updated_data} <- Data.put(state.data, data_path, new_array),
+           :ok <- ensure_data_size(updated_data, state.opts) do
         ids = array_ids_for(state, data_path, array)
         new_ids = List.delete_at(ids, index)
         array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
         state = %State{state | data: updated_data, array_ids: array_ids}
         state = prune_array_state(state, data_path)
-        {:ok, validate_state(state, [data_path])}
+        {:ok, validate_state(state, [data_path], validate?)}
       end
     end
   end
@@ -179,6 +191,8 @@ defmodule JsonFormsLV.Engine do
   """
   @spec move_item(State.t(), String.t(), term(), term()) :: {:ok, State.t()} | {:error, term()}
   def move_item(%State{} = state, data_path, from, to) do
+    validate? = should_validate?(state, :change, %{})
+
     with {:ok, array} <- get_array(state.data, data_path),
          {:ok, from_index} <- normalize_index(from),
          {:ok, to_index} <- normalize_index(to),
@@ -186,13 +200,14 @@ defmodule JsonFormsLV.Engine do
          true <- to_index >= 0 and to_index < length(array) do
       new_array = move_list_item(array, from_index, to_index)
 
-      with {:ok, updated_data} <- Data.put(state.data, data_path, new_array) do
+      with {:ok, updated_data} <- Data.put(state.data, data_path, new_array),
+           :ok <- ensure_data_size(updated_data, state.opts) do
         ids = array_ids_for(state, data_path, array)
         new_ids = move_list_item(ids, from_index, to_index)
         array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
         state = %State{state | data: updated_data, array_ids: array_ids}
         state = prune_array_state(state, data_path)
-        {:ok, validate_state(state, [data_path])}
+        {:ok, validate_state(state, [data_path], validate?)}
       end
     else
       false -> {:error, {:invalid_index, data_path}}
@@ -207,7 +222,7 @@ defmodule JsonFormsLV.Engine do
   def set_additional_errors(%State{} = state, additional_errors)
       when is_list(additional_errors) do
     state = %State{state | additional_errors: additional_errors}
-    {:ok, validate_state(state, [])}
+    {:ok, validate_state(state, [], true)}
   end
 
   @doc """
@@ -216,7 +231,7 @@ defmodule JsonFormsLV.Engine do
   @spec set_validation_mode(State.t(), atom()) :: {:ok, State.t()}
   def set_validation_mode(%State{} = state, mode) when is_atom(mode) do
     state = %State{state | validation_mode: mode}
-    {:ok, validate_state(state, [])}
+    {:ok, validate_state(state, [], true)}
   end
 
   @doc """
@@ -228,7 +243,8 @@ defmodule JsonFormsLV.Engine do
     touched = Enum.reduce(paths, state.touched, &MapSet.put(&2, &1))
 
     state = %State{state | touched: touched, submitted: true}
-    {:ok, validate_state(state, [])}
+    validate? = should_validate?(state, :submit, %{})
+    {:ok, validate_state(state, [], validate?)}
   end
 
   @doc """
@@ -296,7 +312,7 @@ defmodule JsonFormsLV.Engine do
           rule_index: rule_index
       }
 
-      {:ok, validate_state(state, :all)}
+      {:ok, validate_state(state, :all, true)}
     end
   end
 
@@ -354,6 +370,32 @@ defmodule JsonFormsLV.Engine do
 
   defp maybe_submit(submitted, _meta), do: submitted
 
+  defp should_validate?(%State{} = state, event, meta) when is_atom(event) do
+    validate_on =
+      Map.get(state.opts || %{}, :validate_on) || Map.get(state.opts || %{}, "validate_on") ||
+        :change
+
+    if validate_override?(meta) do
+      true
+    else
+      case validate_on do
+        :change -> event == :change
+        :blur -> event in [:blur, :submit]
+        :submit -> event == :submit
+        _ -> true
+      end
+    end
+  end
+
+  defp should_validate?(_state, _event, _meta), do: true
+
+  defp validate_override?(meta) when is_map(meta) do
+    Map.get(meta, :validate) == true or Map.get(meta, "validate") == true or
+      Map.get(meta, :validate?) == true or Map.get(meta, "validate?") == true
+  end
+
+  defp validate_override?(_meta), do: false
+
   defp collect_paths(map, prefix) when is_map(map) do
     Enum.flat_map(map, fn {key, value} ->
       path = if prefix == "", do: key, else: "#{prefix}.#{key}"
@@ -372,11 +414,104 @@ defmodule JsonFormsLV.Engine do
 
   defp collect_paths(_value, _prefix), do: []
 
+  defp maybe_apply_defaults(data, schema, opts) do
+    apply_defaults? = Map.get(opts || %{}, :apply_defaults, false)
+    apply_defaults? = apply_defaults? || Map.get(opts || %{}, "apply_defaults") == true
+
+    if apply_defaults? do
+      apply_defaults(data, schema)
+    else
+      data
+    end
+  end
+
+  defp apply_defaults(data, schema) when is_map(schema) do
+    data =
+      cond do
+        data != nil ->
+          data
+
+        Map.has_key?(schema, "default") ->
+          Map.get(schema, "default")
+
+        object_schema?(schema) ->
+          %{}
+
+        true ->
+          data
+      end
+
+    cond do
+      is_map(data) ->
+        apply_defaults_object(data, schema)
+
+      is_list(data) ->
+        apply_defaults_array(data, schema)
+
+      true ->
+        data
+    end
+  end
+
+  defp apply_defaults(data, _schema), do: data
+
+  defp apply_defaults_object(data, schema) do
+    props = Map.get(schema, "properties", %{})
+
+    Enum.reduce(props, data, fn {key, prop_schema}, acc ->
+      if Map.has_key?(acc, key) do
+        Map.update!(acc, key, &apply_defaults(&1, prop_schema))
+      else
+        case Map.fetch(prop_schema || %{}, "default") do
+          {:ok, default} -> Map.put(acc, key, default)
+          :error -> acc
+        end
+      end
+    end)
+  end
+
+  defp apply_defaults_array(data, %{"items" => items}) when is_list(items) do
+    Enum.with_index(data)
+    |> Enum.map(fn {item, index} ->
+      schema = Enum.at(items, index)
+      apply_defaults(item, schema || %{})
+    end)
+  end
+
+  defp apply_defaults_array(data, %{"items" => items}) when is_map(items) do
+    Enum.map(data, &apply_defaults(&1, items))
+  end
+
+  defp apply_defaults_array(data, _schema), do: data
+
   defp maybe_compile(false, _schema, _validator, _validator_opts, state),
     do: {:ok, state.validator.compiled}
 
   defp maybe_compile(true, schema, validator, validator_opts, _state),
     do: validator.compile(schema, validator_opts)
+
+  defp ensure_data_size(data, opts) do
+    max_bytes =
+      Map.get(opts || %{}, :max_data_bytes) || Map.get(opts || %{}, "max_data_bytes") ||
+        Limits.defaults().max_data_bytes
+
+    cond do
+      max_bytes in [nil, :infinity] ->
+        :ok
+
+      is_integer(max_bytes) and max_bytes > 0 ->
+        size = byte_size(:erlang.term_to_binary(data))
+
+        if size <= max_bytes do
+          :ok
+        else
+          {:error, {:max_data_bytes_exceeded, size, max_bytes}}
+        end
+
+      true ->
+        :ok
+    end
+  end
 
   defp get_array(data, path) do
     case Data.get(data, path) do
@@ -590,7 +725,7 @@ defmodule JsonFormsLV.Engine do
   defp object_schema?(%{"properties" => props}) when is_map(props), do: true
   defp object_schema?(_schema), do: false
 
-  defp validate_state(%State{} = state, changed_paths) do
+  defp validate_state(%State{} = state, changed_paths, validate?) do
     started_at = System.monotonic_time()
 
     {rule_state, rule_schema_cache, rule_index, rule_stats} =
@@ -598,23 +733,28 @@ defmodule JsonFormsLV.Engine do
 
     additional_errors = Errors.normalize_additional(state.additional_errors || [])
 
-    validator_errors =
-      cond do
-        state.validation_mode == :no_validation ->
-          []
+    {errors, additional_errors} =
+      if validate? do
+        validator_errors =
+          cond do
+            state.validation_mode == :no_validation ->
+              []
 
-        state.validator == nil ->
-          []
+            state.validator == nil ->
+              []
 
-        true ->
-          state.validator.module.validate(
-            state.validator.compiled,
-            state.data,
-            state.validator_opts
-          )
+            true ->
+              state.validator.module.validate(
+                state.validator.compiled,
+                state.data,
+                state.validator_opts
+              )
+          end
+
+        {Errors.merge(validator_errors, additional_errors, state.opts), additional_errors}
+      else
+        {state.errors || [], additional_errors}
       end
-
-    errors = Errors.merge(validator_errors, additional_errors, state.opts)
 
     state = %State{
       state
