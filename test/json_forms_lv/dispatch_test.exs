@@ -85,6 +85,23 @@ defmodule JsonFormsLV.DispatchTest do
     assert Dispatch.pick_renderer(uischema, schema, registry, ctx, :unknown) == nil
   end
 
+  test "dispatch selects layout renderer" do
+    registry =
+      Registry.new(
+        control_renderers: [],
+        layout_renderers: [JsonFormsLV.LayoutRendererTestSupport],
+        cell_renderers: []
+      )
+
+    ctx = %{}
+    uischema = %{"type" => "Group"}
+    schema = %{"type" => "object"}
+
+    {module, _opts} = Dispatch.pick_renderer(uischema, schema, registry, ctx, :layout)
+
+    assert module == JsonFormsLV.LayoutRendererTestSupport
+  end
+
   test "dispatch preserves renderer options" do
     registry =
       Registry.new(

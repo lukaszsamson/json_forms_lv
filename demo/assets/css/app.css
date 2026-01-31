@@ -342,3 +342,15 @@
 .jf-category-panel {
   padding: 0.5rem 0;
 }
+
+.jf-group-spotlight {
+  border: 1px dashed var(--color-base-300);
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 0.75rem;
+}
+
+.jf-tester-highlight {
+  border-left: 3px solid var(--color-primary);
+  padding-left: 0.75rem;
+}

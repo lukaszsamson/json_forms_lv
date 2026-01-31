@@ -330,6 +330,58 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
             >
               Custom renderer
             </button>
+            <button
+              id="scenario-layouts"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="layouts"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "layouts" && "bg-zinc-900 text-white",
+                @scenario != "layouts" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Layouts
+            </button>
+            <button
+              id="scenario-arrays-multi"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="arrays-multi"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "arrays-multi" && "bg-zinc-900 text-white",
+                @scenario != "arrays-multi" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Arrays multi
+            </button>
+            <button
+              id="scenario-testers"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="testers"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "testers" && "bg-zinc-900 text-white",
+                @scenario != "testers" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Testers
+            </button>
+            <button
+              id="scenario-oneof"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="oneof"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "oneof" && "bg-zinc-900 text-white",
+                @scenario != "oneof" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              oneOf titles
+            </button>
           </div>
 
           <%= if @scenario == "i18n" do %>
@@ -801,6 +853,120 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp arrays_multi_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "tags" => %{
+          "type" => "array",
+          "items" => %{
+            "type" => "string",
+            "enum" => ["alpha", "beta", "gamma", "delta"]
+          }
+        }
+      }
+    }
+  end
+
+  defp arrays_multi_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/tags"
+        }
+      ]
+    }
+  end
+
+  defp layouts_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "first_name" => %{"type" => "string", "title" => "First name"},
+        "last_name" => %{"type" => "string", "title" => "Last name"},
+        "role" => %{"type" => "string", "title" => "Role"},
+        "team" => %{"type" => "string", "title" => "Team"}
+      }
+    }
+  end
+
+  defp layouts_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "HorizontalLayout",
+          "elements" => [
+            %{"type" => "Control", "scope" => "#/properties/first_name"},
+            %{"type" => "Control", "scope" => "#/properties/last_name"}
+          ]
+        },
+        %{
+          "type" => "Group",
+          "label" => "Spotlight",
+          "options" => %{"variant" => "spotlight"},
+          "elements" => [
+            %{"type" => "Control", "scope" => "#/properties/role"},
+            %{"type" => "Control", "scope" => "#/properties/team"}
+          ]
+        }
+      ]
+    }
+  end
+
+  defp testers_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "status" => %{
+          "type" => "string",
+          "title" => "Status",
+          "enum" => ["active", "paused"]
+        },
+        "priority" => %{"type" => "number", "title" => "Priority", "enum" => [1, 2, 3]},
+        "ignore" => %{"type" => "string", "title" => "Ignore"}
+      }
+    }
+  end
+
+  defp testers_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{"type" => "Control", "scope" => "#/properties/status"},
+        %{"type" => "Control", "scope" => "#/properties/priority"},
+        %{"type" => "Control", "scope" => "#/properties/ignore"}
+      ]
+    }
+  end
+
+  defp oneof_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "tier" => %{
+          "type" => "string",
+          "oneOf" => [
+            %{"const" => "starter", "title" => "Starter"},
+            %{"const" => "pro", "title" => "Pro"},
+            %{"const" => "enterprise", "title" => "Enterprise"}
+          ]
+        }
+      }
+    }
+  end
+
+  defp oneof_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{"type" => "Control", "scope" => "#/properties/tier"}
+      ]
+    }
+  end
+
   defp custom_schema do
     %{
       "type" => "object",
@@ -1077,6 +1243,45 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       data: %{"message" => "Hello", "note" => "Keep it simple"},
       json_forms_cells: [JsonFormsLvDemoWeb.CustomCells.ShoutInput],
       json_forms_renderers: [JsonFormsLvDemoWeb.CustomRenderers.CalloutControl]
+    })
+  end
+
+  defp scenario_config("layouts") do
+    base_config(%{
+      schema: layouts_schema(),
+      uischema: layouts_uischema(),
+      data: %{
+        "first_name" => "Ada",
+        "last_name" => "Lovelace",
+        "role" => "Engineer",
+        "team" => "Core"
+      },
+      json_forms_renderers: [JsonFormsLvDemoWeb.CustomRenderers.SpotlightGroup]
+    })
+  end
+
+  defp scenario_config("arrays-multi") do
+    base_config(%{
+      schema: arrays_multi_schema(),
+      uischema: arrays_multi_uischema(),
+      data: %{"tags" => ["alpha", "gamma"]}
+    })
+  end
+
+  defp scenario_config("testers") do
+    base_config(%{
+      schema: testers_schema(),
+      uischema: testers_uischema(),
+      data: %{"status" => "active", "priority" => 2, "ignore" => "skip"},
+      json_forms_renderers: [JsonFormsLvDemoWeb.CustomRenderers.TesterControl]
+    })
+  end
+
+  defp scenario_config("oneof") do
+    base_config(%{
+      schema: oneof_schema(),
+      uischema: oneof_uischema(),
+      data: %{"tier" => "pro"}
     })
   end
 
