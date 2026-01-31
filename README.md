@@ -165,6 +165,17 @@ Override the resolver with `opts[:uischema_resolver]` when needed.
 - `toggle`: render booleans as a switch-style checkbox.
 - `slider`: render numbers as a range input using schema `minimum`/`maximum`/`multipleOf`.
 - ListWithDetail renderer: use `uischema.type = "ListWithDetail"` for array detail lists.
+- Combinator control: `oneOf`/`anyOf`/`allOf` schemas render a selector and detail sections.
+
+### Combinator selection
+
+`CombinatorControl` emits `jf:select_combinator` with `path` + `selection`. The LiveComponent
+handles this automatically; custom hosts can call `Engine.set_combinator/3` to persist selection.
+
+### writeOnly handling
+
+Schema properties marked with `"writeOnly": true` are cleared from rendered inputs after submission
+to avoid echoing sensitive values back into the DOM.
 - Date/time picker options: `dateFormat`, `dateSaveFormat`, `timeFormat`, `timeSaveFormat`,
   `dateTimeFormat`, `dateTimeSaveFormat`, `ampm`, `views`, `clearLabel`, `cancelLabel`, `okLabel`.
   These are exposed as `data-jf-*` attributes on native inputs for custom picker hooks.

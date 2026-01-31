@@ -157,6 +157,23 @@ defmodule JsonFormsLV.DispatchTest do
     assert module == JsonFormsLV.Phoenix.Renderers.ListWithDetail
   end
 
+  test "dispatch selects combinator control" do
+    registry =
+      Registry.new(
+        control_renderers: [JsonFormsLV.Phoenix.Renderers.CombinatorControl],
+        layout_renderers: [],
+        cell_renderers: []
+      )
+
+    ctx = %{}
+    uischema = %{"type" => "Control"}
+    schema = %{"oneOf" => [%{"type" => "object"}]}
+
+    {module, _opts} = Dispatch.pick_renderer(uischema, schema, registry, ctx, :control)
+
+    assert module == JsonFormsLV.Phoenix.Renderers.CombinatorControl
+  end
+
   test "dispatch skips invalid or raising testers" do
     registry =
       Registry.new(

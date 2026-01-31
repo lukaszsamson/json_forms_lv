@@ -335,6 +335,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               List With Detail
             </button>
             <button
+              id="scenario-combinators"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="combinators"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "combinators" && "bg-zinc-900 text-white",
+                @scenario != "combinators" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Combinators
+            </button>
+            <button
               id="scenario-categorization"
               type="button"
               phx-click="select_scenario"
@@ -1151,6 +1164,83 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp combinators_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "contact" => %{
+          "title" => "Contact",
+          "oneOf" => [
+            %{
+              "title" => "Email",
+              "type" => "object",
+              "properties" => %{
+                "email" => %{"type" => "string", "format" => "email"}
+              }
+            },
+            %{
+              "title" => "Phone",
+              "type" => "object",
+              "properties" => %{
+                "phone" => %{"type" => "string"}
+              }
+            }
+          ]
+        },
+        "preferences" => %{
+          "title" => "Preferences",
+          "anyOf" => [
+            %{
+              "title" => "Newsletter",
+              "type" => "object",
+              "properties" => %{
+                "newsletter" => %{"type" => "boolean"}
+              }
+            },
+            %{
+              "title" => "Alerts",
+              "type" => "object",
+              "properties" => %{
+                "alerts" => %{"type" => "boolean"}
+              }
+            }
+          ]
+        },
+        "profile" => %{
+          "title" => "Profile",
+          "allOf" => [
+            %{
+              "title" => "Name",
+              "type" => "object",
+              "properties" => %{
+                "first" => %{"type" => "string"},
+                "last" => %{"type" => "string"}
+              }
+            },
+            %{
+              "title" => "Location",
+              "type" => "object",
+              "properties" => %{
+                "city" => %{"type" => "string"}
+              }
+            }
+          ]
+        }
+      }
+    }
+  end
+
+  defp combinators_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{"type" => "Control", "scope" => "#/properties/contact"},
+        %{"type" => "Control", "scope" => "#/properties/preferences"},
+        %{"type" => "Control", "scope" => "#/properties/profile"}
+      ]
+    }
+  end
+
   defp live_component_schema do
     %{
       "type" => "object",
@@ -1697,6 +1787,18 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
             "email" => "grace@hopper.dev"
           }
         ]
+      }
+    })
+  end
+
+  defp scenario_config("combinators") do
+    base_config(%{
+      schema: combinators_schema(),
+      uischema: combinators_uischema(),
+      data: %{
+        "contact" => %{"email" => "ada@lovelace.dev"},
+        "preferences" => %{"newsletter" => true, "alerts" => false},
+        "profile" => %{"first" => "Ada", "last" => "Lovelace", "city" => "London"}
       }
     })
   end

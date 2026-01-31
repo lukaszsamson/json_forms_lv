@@ -198,6 +198,16 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "input[name='users.0.firstname']")
   end
 
+  test "combinators scenario renders combinator selectors", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "combinators"})
+
+    assert has_element?(view, "#demo-scenario", "combinators")
+    assert has_element?(view, "select[name='selection']")
+    assert has_element?(view, ".jf-combinator")
+  end
+
   test "formats scenario preserves date values across changes", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 

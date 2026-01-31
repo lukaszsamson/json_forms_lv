@@ -25,5 +25,6 @@ defmodule JsonFormsLV.State do
             opts: %{},
             schema_index: nil,
             uischema_index: nil,
-            array_ids: %{}
+            array_ids: %{},
+            combinator_state: %{}
 end

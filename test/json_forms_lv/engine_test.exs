@@ -101,6 +101,16 @@ defmodule JsonFormsLV.EngineTest do
     assert Enum.any?(state.errors, &(&1.source == :additional))
   end
 
+  test "set_combinator stores selection" do
+    {:ok, state} = Engine.init(%{}, %{}, %{}, %{})
+
+    {:ok, state} = Engine.set_combinator(state, "contact", 1)
+    assert state.combinator_state["contact"] == 1
+
+    {:ok, state} = Engine.set_combinator(state, "prefs", ["0", "2"])
+    assert state.combinator_state["prefs"] == [0, 2]
+  end
+
   test "validate_and_hide computes but hides validator errors" do
     schema = %{
       "type" => "object",

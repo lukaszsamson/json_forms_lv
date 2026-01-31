@@ -174,6 +174,7 @@ defmodule JsonFormsLV.Phoenix.Components do
   defp default_registry do
     Registry.new(
       control_renderers: [
+        JsonFormsLV.Phoenix.Renderers.CombinatorControl,
         JsonFormsLV.Phoenix.Renderers.ListWithDetail,
         JsonFormsLV.Phoenix.Renderers.ArrayControl,
         JsonFormsLV.Phoenix.Renderers.Control
@@ -225,6 +226,8 @@ defmodule JsonFormsLV.Phoenix.Components do
       else
         data_value(state.data, path)
       end
+
+    value = if write_only?(schema, state), do: nil, else: value
 
     rule_flags = Map.get(state.rule_state || %{}, render_key, %{visible?: true, enabled?: true})
     visible? = assigns.parent_visible? && Map.get(rule_flags, :visible?, true)
@@ -371,6 +374,9 @@ defmodule JsonFormsLV.Phoenix.Components do
     do: "number" in types or "integer" in types
 
   defp raw_input_applicable?(_raw_input, _schema), do: false
+
+  defp write_only?(%{"writeOnly" => true}, %State{submitted: true}), do: true
+  defp write_only?(_schema, _state), do: false
 
   defp required?(%State{} = state, path) when is_binary(path) do
     with segments when segments != [] <- Path.parse_data_path(path),

@@ -147,6 +147,15 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
     {:noreply, assign(socket, :categorization_state, state_map)}
   end
 
+  def handle_event("jf:select_combinator", %{"path" => path} = params, socket) do
+    selection = Map.get(params, "selection") || Map.get(params, "value")
+
+    case Engine.set_combinator(socket.assigns.state, path, selection) do
+      {:ok, state} -> {:noreply, assign(socket, :state, state)}
+      {:error, _reason} -> {:noreply, socket}
+    end
+  end
+
   def handle_event("jf:add_item", %{"path" => path} = params, socket) do
     opts = Map.get(params, "opts", %{})
     notify = socket.assigns[:notify]

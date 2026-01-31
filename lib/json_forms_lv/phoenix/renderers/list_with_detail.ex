@@ -209,6 +209,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ListWithDetail do
 
   defp render_control(assigns, uischema, schema, path) do
     value = data_value(assigns.data, path)
+    value = if write_only?(schema, assigns.state), do: nil, else: value
     instance_path = Path.data_path_to_instance_path(path)
     errors_for_control = Errors.errors_for_control(assigns.state, path)
 
@@ -404,6 +405,9 @@ defmodule JsonFormsLV.Phoenix.Renderers.ListWithDetail do
       {:error, _} -> nil
     end
   end
+
+  defp write_only?(%{"writeOnly" => true}, %{submitted: true}), do: true
+  defp write_only?(_schema, _state), do: false
 
   defp resolve_label(%{uischema: %{"label" => false}}), do: {nil, false}
   defp resolve_label(%{uischema: %{"label" => %{"show" => false}}}), do: {nil, false}

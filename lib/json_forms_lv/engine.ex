@@ -48,6 +48,10 @@ defmodule JsonFormsLV.Engine do
              {:ok, compiled} <- validator.compile(resolved_schema, validator_opts),
              data <- maybe_apply_defaults(data, resolved_schema, opts_with_limits),
              :ok <- ensure_data_size(data, opts_with_limits) do
+          combinator_state =
+            Map.get(opts_with_limits, :combinator_state) ||
+              Map.get(opts_with_limits, "combinator_state") || %{}
+
           uischema = if uischema == nil, do: UISchema.default(resolved_schema), else: uischema
 
           with {:ok, uischema} <- uischema_resolver.resolve(uischema, opts_with_limits) do
@@ -58,7 +62,8 @@ defmodule JsonFormsLV.Engine do
               opts: opts_with_limits,
               validation_mode: validation_mode,
               validator: %{module: validator, compiled: compiled},
-              validator_opts: validator_opts
+              validator_opts: validator_opts,
+              combinator_state: combinator_state
             }
 
             state = init_array_ids(state)
@@ -277,6 +282,19 @@ defmodule JsonFormsLV.Engine do
   end
 
   @doc """
+  Update combinator selection state for a data path.
+  """
+  @spec set_combinator(State.t(), String.t(), term()) :: {:ok, State.t()}
+  def set_combinator(%State{} = state, data_path, selection) when is_binary(data_path) do
+    selection = normalize_combinator_selection(selection)
+
+    combinator_state =
+      Map.put(state.combinator_state || %{}, data_path, selection)
+
+    {:ok, %State{state | combinator_state: combinator_state}}
+  end
+
+  @doc """
   Set global readonly state.
   """
   @spec set_readonly(State.t(), boolean()) :: {:ok, State.t()}
@@ -398,6 +416,27 @@ defmodule JsonFormsLV.Engine do
   end
 
   defp maybe_submit(submitted, _meta), do: submitted
+
+  defp normalize_combinator_selection(selection) when is_list(selection) do
+    selection
+    |> Enum.map(&normalize_combinator_index/1)
+    |> Enum.filter(&is_integer/1)
+  end
+
+  defp normalize_combinator_selection(selection), do: normalize_combinator_index(selection)
+
+  defp normalize_combinator_index(nil), do: nil
+
+  defp normalize_combinator_index(value) when is_integer(value), do: value
+
+  defp normalize_combinator_index(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {index, _} -> index
+      _ -> nil
+    end
+  end
+
+  defp normalize_combinator_index(_value), do: nil
 
   defp put_coerced_value(data, path, value, schema, raw_value) do
     if value == nil and raw_value in ["", nil] and not nullable_schema?(schema) do

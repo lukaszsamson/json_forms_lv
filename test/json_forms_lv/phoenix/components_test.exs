@@ -195,4 +195,33 @@ defmodule JsonFormsLV.Phoenix.ComponentsTest do
 
     assert html =~ ~r/<input[^>]*name="name"[^>]*disabled/
   end
+
+  test "writeOnly values are masked after submission" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "secret" => %{"type" => "string", "writeOnly" => true}
+      }
+    }
+
+    uischema = %{
+      "type" => "Control",
+      "scope" => "#/properties/secret"
+    }
+
+    {:ok, state} = Engine.init(schema, uischema, %{"secret" => "top-secret"}, %{})
+    {:ok, submitted_state} = Engine.touch_all(state)
+
+    html =
+      render_forms(
+        id: "writeonly",
+        schema: schema,
+        uischema: uischema,
+        data: submitted_state.data,
+        state: submitted_state,
+        wrap_form: false
+      )
+
+    refute html =~ ~s/value="top-secret"/
+  end
 end
