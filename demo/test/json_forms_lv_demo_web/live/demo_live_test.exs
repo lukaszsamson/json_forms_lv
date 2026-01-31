@@ -155,6 +155,19 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "input[name='details']")
   end
 
+  test "rule-not scenario toggles note visibility", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "rule-not"})
+
+    assert has_element?(view, "#demo-scenario", "rule-not")
+    assert has_element?(view, "input[name='note']")
+
+    render_change(view, "jf:change", %{"path" => "flag", "value" => "true"})
+
+    refute has_element?(view, "input[name='note']")
+  end
+
   test "formats scenario preserves date values across changes", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 

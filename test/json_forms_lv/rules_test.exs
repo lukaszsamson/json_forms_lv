@@ -199,6 +199,72 @@ defmodule JsonFormsLV.RulesTest do
     assert state.rule_state[render_key][:visible?] == true
   end
 
+  test "leaf condition matches expected value" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "mode" => %{"type" => "string"},
+        "name" => %{"type" => "string"}
+      }
+    }
+
+    uischema = %{
+      "type" => "Control",
+      "scope" => "#/properties/name",
+      "rule" => %{
+        "effect" => "HIDE",
+        "condition" => %{
+          "type" => "LEAF",
+          "scope" => "#/properties/mode",
+          "expectedValue" => "advanced"
+        }
+      }
+    }
+
+    element_key = Rules.element_key(uischema, [])
+    render_key = Rules.render_key(element_key, "name")
+
+    {:ok, state} = Engine.init(schema, uischema, %{"mode" => "advanced"}, %{})
+    assert state.rule_state[render_key][:visible?] == false
+
+    {:ok, state} = Engine.init(schema, uischema, %{"mode" => "basic"}, %{})
+    assert state.rule_state[render_key][:visible?] == true
+  end
+
+  test "not condition inverts the child condition" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "flag" => %{"type" => "boolean"},
+        "name" => %{"type" => "string"}
+      }
+    }
+
+    uischema = %{
+      "type" => "Control",
+      "scope" => "#/properties/name",
+      "rule" => %{
+        "effect" => "SHOW",
+        "condition" => %{
+          "type" => "NOT",
+          "condition" => %{
+            "scope" => "#/properties/flag",
+            "schema" => %{"const" => true}
+          }
+        }
+      }
+    }
+
+    element_key = Rules.element_key(uischema, [])
+    render_key = Rules.render_key(element_key, "name")
+
+    {:ok, state} = Engine.init(schema, uischema, %{"flag" => true}, %{})
+    assert state.rule_state[render_key][:visible?] == false
+
+    {:ok, state} = Engine.init(schema, uischema, %{"flag" => false}, %{})
+    assert state.rule_state[render_key][:visible?] == true
+  end
+
   test "evaluate_incremental updates only affected rules" do
     schema = %{
       "type" => "object",

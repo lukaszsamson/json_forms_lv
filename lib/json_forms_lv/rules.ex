@@ -47,7 +47,7 @@ defmodule JsonFormsLV.Rules do
           condition: map(),
           effect: term(),
           fail_when_undefined: boolean(),
-          scope_path: String.t() | nil
+          scope_path: String.t() | [String.t()] | nil
         }
 
   @spec index(map()) :: [rule_entry]
@@ -223,6 +223,23 @@ defmodule JsonFormsLV.Rules do
     do: {%{visible?: true, enabled?: true}, cache}
 
   defp condition_true?(
+         %{"type" => "LEAF", "scope" => scope, "expectedValue" => expected},
+         data,
+         _validator,
+         _opts,
+         _fail_when_undefined,
+         cache
+       )
+       when is_binary(scope) do
+    path = Path.schema_pointer_to_data_path(scope)
+
+    case Data.get(data, path) do
+      {:ok, value} -> {value == expected, cache}
+      {:error, _} -> {false, cache}
+    end
+  end
+
+  defp condition_true?(
          %{"scope" => scope, "schema" => schema},
          data,
          validator,
@@ -264,6 +281,38 @@ defmodule JsonFormsLV.Rules do
           if result, do: {:halt, {true, cache}}, else: {:cont, {false, cache}}
       end
     end)
+  end
+
+  defp condition_true?(
+         %{"type" => "NOT", "condition" => condition},
+         data,
+         validator,
+         opts,
+         fail,
+         cache
+       )
+       when is_map(condition) do
+    {result, cache} = condition_true?(condition, data, validator, opts, fail, cache)
+    {not result, cache}
+  end
+
+  defp condition_true?(
+         %{"type" => "NOT", "conditions" => conditions},
+         data,
+         validator,
+         opts,
+         fail,
+         cache
+       )
+       when is_list(conditions) do
+    case conditions do
+      [condition | _] when is_map(condition) ->
+        {result, cache} = condition_true?(condition, data, validator, opts, fail, cache)
+        {not result, cache}
+
+      _ ->
+        {false, cache}
+    end
   end
 
   defp condition_true?(_condition, _data, _validator, _opts, _fail_when_undefined, cache),
@@ -351,8 +400,19 @@ defmodule JsonFormsLV.Rules do
       paths ->
         Enum.filter(rule_index, fn entry ->
           case entry.scope_path do
-            nil -> false
-            scope_path -> Enum.any?(paths, &paths_related?(scope_path, &1))
+            nil ->
+              false
+
+            scope_path when is_binary(scope_path) ->
+              Enum.any?(paths, &paths_related?(scope_path, &1))
+
+            scope_paths when is_list(scope_paths) ->
+              Enum.any?(scope_paths, fn scope_path ->
+                Enum.any?(paths, &paths_related?(scope_path, &1))
+              end)
+
+            _ ->
+              false
           end
         end)
     end
@@ -418,7 +478,33 @@ defmodule JsonFormsLV.Rules do
   end
 
   defp scope_path(%{"scope" => scope}) when is_binary(scope) do
-    Path.schema_pointer_to_data_path(scope)
+    [Path.schema_pointer_to_data_path(scope)]
+  end
+
+  defp scope_path(%{"type" => type, "conditions" => conditions})
+       when type in ["AND", "OR"] and is_list(conditions) do
+    conditions
+    |> Enum.flat_map(&scope_path/1)
+    |> Enum.filter(&is_binary/1)
+    |> Enum.uniq()
+    |> case do
+      [] -> nil
+      paths -> paths
+    end
+  end
+
+  defp scope_path(%{"type" => "NOT", "condition" => condition}) when is_map(condition),
+    do: scope_path(condition)
+
+  defp scope_path(%{"type" => "NOT", "conditions" => conditions}) when is_list(conditions) do
+    conditions
+    |> Enum.flat_map(&scope_path/1)
+    |> Enum.filter(&is_binary/1)
+    |> Enum.uniq()
+    |> case do
+      [] -> nil
+      paths -> paths
+    end
   end
 
   defp scope_path(_condition), do: nil

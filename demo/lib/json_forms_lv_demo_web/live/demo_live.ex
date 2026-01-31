@@ -283,6 +283,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               Conditionals
             </button>
             <button
+              id="scenario-rule-not"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="rule-not"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "rule-not" && "bg-zinc-900 text-white",
+                @scenario != "rule-not" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Rule NOT
+            </button>
+            <button
               id="scenario-categorization"
               type="button"
               phx-click="select_scenario"
@@ -941,6 +954,39 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp rule_not_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "flag" => %{"type" => "boolean", "title" => "Flag"},
+        "note" => %{"type" => "string", "title" => "Note"}
+      }
+    }
+  end
+
+  defp rule_not_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{"type" => "Control", "scope" => "#/properties/flag"},
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/note",
+          "rule" => %{
+            "effect" => "SHOW",
+            "condition" => %{
+              "type" => "NOT",
+              "condition" => %{
+                "scope" => "#/properties/flag",
+                "schema" => %{"const" => true}
+              }
+            }
+          }
+        }
+      ]
+    }
+  end
+
   defp live_component_schema do
     %{
       "type" => "object",
@@ -1441,6 +1487,14 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       schema: conditionals_schema(),
       uischema: conditionals_uischema(),
       data: %{"mode" => "basic", "summary" => "Quick overview"}
+    })
+  end
+
+  defp scenario_config("rule-not") do
+    base_config(%{
+      schema: rule_not_schema(),
+      uischema: rule_not_uischema(),
+      data: %{"flag" => false, "note" => "Visible when flag is false"}
     })
   end
 
