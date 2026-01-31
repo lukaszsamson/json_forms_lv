@@ -5,8 +5,6 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
 
   use Phoenix.Component
 
-  alias Phoenix.LiveView.JS
-
   @behaviour JsonFormsLV.Renderer
 
   @impl JsonFormsLV.Renderer
@@ -16,7 +14,16 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
 
   @impl JsonFormsLV.Renderer
   def render(assigns) do
-    assigns = assign(assigns, disabled?: disabled?(assigns), value: assigns.value || "")
+    change_event = if assigns.binding == :per_input, do: assigns.on_change
+    blur_event = assigns.on_blur
+
+    assigns =
+      assign(assigns,
+        disabled?: disabled?(assigns),
+        value: assigns.value || "",
+        change_event: change_event,
+        blur_event: blur_event
+      )
 
     ~H"""
     <input
@@ -25,10 +32,9 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
       type="text"
       value={@value}
       disabled={@disabled?}
-      phx-change={
-        JS.push(@on_change, value: %{path: @path, meta: %{touch: true}}, target: @target)
-      }
-      phx-blur={JS.push(@on_blur, value: %{path: @path, meta: %{touch: true}}, target: @target)}
+      phx-change={@change_event}
+      phx-blur={@blur_event}
+      phx-target={@target}
     />
     """
   end

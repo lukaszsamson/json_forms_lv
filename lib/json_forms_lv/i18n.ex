@@ -24,6 +24,42 @@ defmodule JsonFormsLV.I18n do
 
   def translate_error(%Error{} = error, _i18n, _ctx), do: error.message
 
+  def translate_label(default, i18n, ctx) do
+    translate_with_suffix(default, i18n, ctx, ".label")
+  end
+
+  def translate_description(default, i18n, ctx) do
+    translate_with_suffix(default, i18n, ctx, ".description")
+  end
+
+  def translate_label_text(default, i18n, ctx) do
+    translate = translate_fun(i18n)
+    uischema = ctx[:uischema] || %{}
+
+    cond do
+      not is_binary(default) ->
+        default
+
+      is_binary(uischema["i18n"]) ->
+        translate_key(translate, uischema["i18n"] <> ".text", default, ctx)
+
+      true ->
+        translate_key(translate, default, default, ctx)
+    end
+  end
+
+  def translate_enum(value, default, i18n, ctx) do
+    translate = translate_fun(i18n)
+
+    key =
+      case base_key(ctx) do
+        nil -> nil
+        base -> base <> "." <> to_string(value)
+      end
+
+    translate_key(translate, key, default, ctx)
+  end
+
   defp translate_error_fallback(%Error{} = error, translate, ctx) do
     if is_function(translate, 3) do
       base = base_key(ctx)
@@ -43,6 +79,36 @@ defmodule JsonFormsLV.I18n do
     else
       error.message
     end
+  end
+
+  defp translate_with_suffix(nil, _i18n, _ctx, _suffix), do: nil
+
+  defp translate_with_suffix(default, i18n, ctx, suffix) when is_binary(default) do
+    translate = translate_fun(i18n)
+
+    key =
+      case base_key(ctx) do
+        nil -> nil
+        base -> base <> suffix
+      end
+
+    translate_key(translate, key, default, ctx)
+  end
+
+  defp translate_with_suffix(default, _i18n, _ctx, _suffix), do: default
+
+  defp translate_key(translate, key, default, ctx) do
+    cond do
+      is_function(translate, 3) and is_binary(key) ->
+        translate.(key, default, ctx) || default
+
+      true ->
+        default
+    end
+  end
+
+  defp translate_fun(i18n) do
+    Map.get(i18n || %{}, :translate) || Map.get(i18n || %{}, "translate")
   end
 
   defp base_key(ctx) do

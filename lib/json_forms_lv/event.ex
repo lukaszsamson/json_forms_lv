@@ -9,7 +9,7 @@ defmodule JsonFormsLV.Event do
     params = normalize_event_params(params)
 
     with {:ok, path} <- extract_path(params, opts) do
-      value = extract_value(params, path)
+      value = extract_value(params, path, opts)
       meta = Map.get(params, "meta", %{})
       {:ok, %{path: path, value: value, meta: meta}}
     end
@@ -40,12 +40,29 @@ defmodule JsonFormsLV.Event do
     end
   end
 
-  defp extract_value(params, path) do
-    case Map.fetch(params, "value") do
-      {:ok, value} -> value
-      :error -> Map.get(params, path)
-    end
+  defp extract_value(params, path, opts) do
+    value =
+      case Map.fetch(params, "value") do
+        {:ok, value} ->
+          value
+
+        :error ->
+          form_key = Keyword.get(opts, :form_key, "jf")
+
+          case params do
+            %{^form_key => form_params} when is_map(form_params) ->
+              Map.get(form_params, path)
+
+            _ ->
+              Map.get(params, path)
+          end
+      end
+
+    normalize_value(value)
   end
+
+  defp normalize_value(value) when is_list(value), do: List.last(value)
+  defp normalize_value(value), do: value
 
   defp normalize_event_params(%{"value" => value} = params) when is_map(value) do
     value_params = normalize_value_params(value)

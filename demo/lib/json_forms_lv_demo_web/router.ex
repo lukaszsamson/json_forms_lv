@@ -19,6 +19,7 @@ defmodule JsonFormsLvDemoWeb.Router do
 
     get("/", PageController, :home)
     live("/demo", DemoLive)
+    live("/storybook", StorybookLive)
   end
 
   # Other scopes may use custom stacks.

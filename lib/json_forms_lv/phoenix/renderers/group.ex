@@ -1,26 +1,37 @@
-defmodule JsonFormsLV.Phoenix.Renderers.HorizontalLayout do
+defmodule JsonFormsLV.Phoenix.Renderers.Group do
   @moduledoc """
-  Renderer for HorizontalLayout UISchema elements.
+  Renderer for Group UISchema elements.
   """
 
   use Phoenix.Component
 
   import JsonFormsLV.Phoenix.Components, only: [dispatch: 1]
 
+  alias JsonFormsLV.I18n
+
   @behaviour JsonFormsLV.Renderer
 
   @impl JsonFormsLV.Renderer
-  def tester(%{"type" => "HorizontalLayout"}, _schema, _ctx), do: 10
+  def tester(%{"type" => "Group"}, _schema, _ctx), do: 10
   def tester(_uischema, _schema, _ctx), do: :not_applicable
 
   @impl JsonFormsLV.Renderer
   def render(assigns) do
+    label = Map.get(assigns.uischema, "label")
+    label = I18n.translate_label(label, assigns.i18n, assigns.ctx)
     elements = Map.get(assigns.uischema, "elements", [])
-    assigns = assign(assigns, :elements, Enum.with_index(elements))
+
+    assigns =
+      assigns
+      |> assign(:label, label)
+      |> assign(:elements, Enum.with_index(elements))
 
     ~H"""
     <%= if @visible? do %>
-      <div id={@id} data-jf-layout="horizontal" class="jf-layout jf-horizontal">
+      <fieldset id={@id} data-jf-layout="group" class="jf-layout jf-group">
+        <%= if @label do %>
+          <legend class="jf-group-label">{@label}</legend>
+        <% end %>
         <%= for {element, index} <- @elements do %>
           <.dispatch
             state={@state}
@@ -42,7 +53,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.HorizontalLayout do
             parent_enabled?={@enabled?}
           />
         <% end %>
-      </div>
+      </fieldset>
     <% end %>
     """
   end

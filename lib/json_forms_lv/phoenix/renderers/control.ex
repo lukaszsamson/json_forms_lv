@@ -17,6 +17,8 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
   def render(assigns) do
     label = resolve_label(assigns)
     description = resolve_description(assigns)
+    label = I18n.translate_label(label, assigns.i18n, assigns.ctx)
+    description = I18n.translate_description(description, assigns.i18n, assigns.ctx)
     input_id = "#{assigns.id}-input"
 
     assigns = assign(assigns, label: label, description: description, input_id: input_id)
@@ -56,6 +58,8 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
           options={@options}
           i18n={@i18n}
           config={@config}
+          ctx={@ctx}
+          binding={@binding}
           on_change={@on_change}
           on_blur={@on_blur}
           target={@target}
@@ -90,6 +94,8 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
   attr(:options, :map, required: true)
   attr(:i18n, :map, required: true)
   attr(:config, :map, required: true)
+  attr(:ctx, :map, required: true)
+  attr(:binding, :atom, required: true)
   attr(:on_change, :string, required: true)
   attr(:on_blur, :string, required: true)
   attr(:target, :any, default: nil)

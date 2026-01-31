@@ -47,7 +47,9 @@ defmodule JsonFormsLV.Phoenix.Components do
           state={@state}
           registry={@registry}
           uischema={@uischema}
+          data={@data}
           form_id={@id}
+          binding={@binding}
           element_path={[]}
           on_change={@on_change}
           on_blur={@on_blur}
@@ -61,7 +63,9 @@ defmodule JsonFormsLV.Phoenix.Components do
         state={@state}
         registry={@registry}
         uischema={@uischema}
+        data={@data}
         form_id={@id}
+        binding={@binding}
         element_path={[]}
         on_change={@on_change}
         on_blur={@on_blur}
@@ -76,7 +80,9 @@ defmodule JsonFormsLV.Phoenix.Components do
   attr(:state, :any, required: true)
   attr(:registry, :any, required: true)
   attr(:uischema, :map, required: true)
+  attr(:data, :any, required: true)
   attr(:form_id, :string, required: true)
+  attr(:binding, :atom, default: :per_input)
   attr(:path, :string, default: "")
   attr(:element_path, :list, default: [])
   attr(:depth, :integer, default: 0)
@@ -97,6 +103,7 @@ defmodule JsonFormsLV.Phoenix.Components do
   defp ensure_state(%{state: %State{}} = assigns) do
     state =
       assigns.state
+      |> Map.put(:data, assigns.data)
       |> Map.put(:readonly, assigns.readonly)
       |> Map.put(:i18n, assigns.i18n)
       |> Map.put(:opts, merge_config(assigns.state.opts, assigns.opts))
@@ -155,10 +162,17 @@ defmodule JsonFormsLV.Phoenix.Components do
     Registry.new(
       control_renderers: [JsonFormsLV.Phoenix.Renderers.Control],
       layout_renderers: [
+        JsonFormsLV.Phoenix.Renderers.Label,
+        JsonFormsLV.Phoenix.Renderers.Group,
         JsonFormsLV.Phoenix.Renderers.VerticalLayout,
         JsonFormsLV.Phoenix.Renderers.HorizontalLayout
       ],
       cell_renderers: [
+        JsonFormsLV.Phoenix.Cells.EnumRadio,
+        JsonFormsLV.Phoenix.Cells.EnumSelect,
+        JsonFormsLV.Phoenix.Cells.DateInput,
+        JsonFormsLV.Phoenix.Cells.DateTimeInput,
+        JsonFormsLV.Phoenix.Cells.MultilineInput,
         JsonFormsLV.Phoenix.Cells.BooleanInput,
         JsonFormsLV.Phoenix.Cells.NumberInput,
         JsonFormsLV.Phoenix.Cells.StringInput
@@ -178,9 +192,10 @@ defmodule JsonFormsLV.Phoenix.Components do
     raw_input = Map.get(state.raw_inputs || %{}, path, :no_raw)
 
     value =
-      case raw_input do
-        :no_raw -> data_value(state.data, path)
-        _ -> raw_input
+      if raw_input_applicable?(raw_input, schema) do
+        raw_input
+      else
+        data_value(state.data, path)
       end
 
     rule_flags = Map.get(state.rule_state || %{}, render_key, %{visible?: true, enabled?: true})
@@ -226,8 +241,7 @@ defmodule JsonFormsLV.Phoenix.Components do
     if assigns.depth > max_depth do
       renderer = JsonFormsLV.Phoenix.Renderers.Unknown
 
-      renderer_assigns =
-        Map.merge(assigns, %{id: id, message: "Max render depth exceeded"})
+      renderer_assigns = assign(assigns, id: id, message: "Max render depth exceeded")
 
       %{renderer: renderer, renderer_assigns: renderer_assigns}
     else
@@ -242,7 +256,7 @@ defmodule JsonFormsLV.Phoenix.Components do
           Errors.has_additional_errors?(errors_for_control)
 
       renderer_assigns =
-        Map.merge(assigns, %{
+        assign(assigns,
           id: id,
           element_key: element_key,
           render_key: render_key,
@@ -258,11 +272,12 @@ defmodule JsonFormsLV.Phoenix.Components do
           options: options,
           i18n: state.i18n,
           config: config,
+          binding: assigns.binding,
           renderer_opts: renderer_opts,
           ctx: ctx,
           errors_for_control: errors_for_control,
           show_errors?: show_errors?
-        })
+        )
 
       %{renderer: renderer, renderer_assigns: renderer_assigns}
     end
@@ -292,6 +307,16 @@ defmodule JsonFormsLV.Phoenix.Components do
       {:error, _} -> nil
     end
   end
+
+  defp raw_input_applicable?(:no_raw, _schema), do: false
+
+  defp raw_input_applicable?(_raw_input, %{"type" => type}) when type in ["number", "integer"],
+    do: true
+
+  defp raw_input_applicable?(_raw_input, %{"type" => types}) when is_list(types),
+    do: "number" in types or "integer" in types
+
+  defp raw_input_applicable?(_raw_input, _schema), do: false
 
   defp merge_config(nil, overrides) when is_map(overrides), do: overrides
   defp merge_config(config, nil) when is_map(config), do: config

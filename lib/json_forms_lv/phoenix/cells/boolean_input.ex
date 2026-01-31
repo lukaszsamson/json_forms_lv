@@ -5,8 +5,6 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
 
   use Phoenix.Component
 
-  alias Phoenix.LiveView.JS
-
   @behaviour JsonFormsLV.Renderer
 
   @impl JsonFormsLV.Renderer
@@ -15,23 +13,29 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
 
   @impl JsonFormsLV.Renderer
   def render(assigns) do
-    assigns = assign(assigns, checked?: assigns.value == true, disabled?: disabled?(assigns))
+    change_event = if assigns.binding == :per_input, do: assigns.on_change
+    blur_event = assigns.on_blur
+
+    assigns =
+      assign(assigns,
+        checked?: assigns.value == true,
+        disabled?: disabled?(assigns),
+        change_event: change_event,
+        blur_event: blur_event
+      )
 
     ~H"""
+    <input type="hidden" name={@path} value="false" disabled={@disabled?} />
     <input
       id={@id}
       name={@path}
       type="checkbox"
+      value="true"
       checked={@checked?}
       disabled={@disabled?}
-      phx-change={
-        JS.push(
-          @on_change,
-          value: %{path: @path, value: not @checked?, meta: %{touch: true}},
-          target: @target
-        )
-      }
-      phx-blur={JS.push(@on_blur, value: %{path: @path, meta: %{touch: true}}, target: @target)}
+      phx-change={@change_event}
+      phx-blur={@blur_event}
+      phx-target={@target}
     />
     """
   end

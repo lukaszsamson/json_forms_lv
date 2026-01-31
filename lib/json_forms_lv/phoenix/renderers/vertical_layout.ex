@@ -26,7 +26,9 @@ defmodule JsonFormsLV.Phoenix.Renderers.VerticalLayout do
             state={@state}
             registry={@registry}
             uischema={element}
+            data={@data}
             form_id={@form_id}
+            binding={@binding}
             path={@path}
             element_path={(@element_path || []) ++ [index]}
             depth={@depth + 1}
