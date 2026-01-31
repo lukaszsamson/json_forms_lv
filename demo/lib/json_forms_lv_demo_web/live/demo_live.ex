@@ -14,6 +14,8 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         validation_mode: config.validation_mode
       })
 
+    {:ok, state} = maybe_set_additional_errors(state, config.additional_errors)
+
     socket =
       socket
       |> assign(:scenario, "basic")
@@ -30,6 +32,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       |> assign(:json_forms_opts, config.json_forms_opts)
       |> assign(:json_forms_cells, config.json_forms_cells)
       |> assign(:json_forms_renderers, config.json_forms_renderers)
+      |> assign(:additional_errors, config.additional_errors)
 
     socket = maybe_sync_array_streams(socket, state, config)
 
@@ -77,6 +80,8 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
            validation_mode: config.validation_mode
          }) do
       {:ok, state} ->
+        {:ok, state} = maybe_set_additional_errors(state, config.additional_errors)
+
         socket =
           socket
           |> assign(:scenario, scenario)
@@ -92,6 +97,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           |> assign(:json_forms_opts, config.json_forms_opts)
           |> assign(:json_forms_cells, config.json_forms_cells)
           |> assign(:json_forms_renderers, config.json_forms_renderers)
+          |> assign(:additional_errors, config.additional_errors)
 
         socket = maybe_sync_array_streams(socket, state, config)
 
@@ -422,6 +428,17 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
                 Off
               </button>
             </div>
+            <%= if @validation_mode == :validate_and_hide do %>
+              <p id="demo-validation-note" class="text-xs text-zinc-600">
+                Validator errors are hidden in the form UI.
+              </p>
+            <% end %>
+          <% end %>
+
+          <%= if @additional_errors != [] do %>
+            <p id="demo-additional-errors-note" class="text-xs text-zinc-600">
+              Additional errors injected ({length(@additional_errors)}).
+            </p>
           <% end %>
 
           <.form for={@form} id="demo-json-forms-form" phx-change="jf:change" phx-submit="jf:submit">
@@ -548,8 +565,20 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "object",
       "properties" => %{
-        "show_details" => %{"type" => "boolean", "title" => "Show details", "default" => false},
-        "details" => %{"type" => "string", "title" => "Details", "minLength" => 1}
+        "show_details" => %{
+          "type" => "boolean",
+          "title" => "Show details",
+          "default" => false
+        },
+        "details" => %{"type" => "string", "title" => "Details", "minLength" => 1},
+        "disable_fields" => %{"type" => "boolean", "title" => "Disable fields"},
+        "locked_note" => %{"type" => "string", "title" => "Locked note"},
+        "and_flag" => %{"type" => "boolean", "title" => "Flag A"},
+        "or_flag" => %{"type" => "boolean", "title" => "Flag B"},
+        "and_note" => %{"type" => "string", "title" => "All conditions met"},
+        "or_note" => %{"type" => "string", "title" => "Any condition met"},
+        "advanced_flag" => %{"type" => "boolean", "title" => "Advanced mode"},
+        "advanced_note" => %{"type" => "string", "title" => "Advanced note"}
       }
     }
   end
@@ -848,6 +877,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "VerticalLayout",
       "elements" => [
+        %{"type" => "Label", "text" => "Hide rule"},
         %{
           "type" => "Control",
           "scope" => "#/properties/show_details",
@@ -864,6 +894,82 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               "schema" => %{"const" => false}
             }
           }
+        },
+        %{"type" => "Label", "text" => "Disable rule"},
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/disable_fields"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/locked_note",
+          "rule" => %{
+            "effect" => "DISABLE",
+            "condition" => %{
+              "scope" => "#/properties/disable_fields",
+              "schema" => %{"const" => true}
+            }
+          }
+        },
+        %{"type" => "Label", "text" => "Composed conditions"},
+        %{"type" => "Control", "scope" => "#/properties/and_flag"},
+        %{"type" => "Control", "scope" => "#/properties/or_flag"},
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/and_note",
+          "rule" => %{
+            "effect" => "SHOW",
+            "condition" => %{
+              "type" => "AND",
+              "conditions" => [
+                %{
+                  "scope" => "#/properties/and_flag",
+                  "schema" => %{"const" => true}
+                },
+                %{
+                  "scope" => "#/properties/or_flag",
+                  "schema" => %{"const" => true}
+                }
+              ]
+            }
+          }
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/or_note",
+          "rule" => %{
+            "effect" => "SHOW",
+            "condition" => %{
+              "type" => "OR",
+              "conditions" => [
+                %{
+                  "scope" => "#/properties/and_flag",
+                  "schema" => %{"const" => true}
+                },
+                %{
+                  "scope" => "#/properties/or_flag",
+                  "schema" => %{"const" => true}
+                }
+              ]
+            }
+          }
+        },
+        %{"type" => "Label", "text" => "failWhenUndefined"},
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/advanced_flag"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/advanced_note",
+          "rule" => %{
+            "effect" => "SHOW",
+            "failWhenUndefined" => true,
+            "condition" => %{
+              "scope" => "#/properties/advanced_flag",
+              "schema" => %{"const" => true}
+            }
+          }
         }
       ]
     }
@@ -873,7 +979,23 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     base_config(%{
       schema: rules_schema(),
       uischema: rules_uischema(),
-      data: %{"show_details" => false, "details" => "Secret"}
+      data: %{
+        "show_details" => false,
+        "details" => "Secret",
+        "disable_fields" => false,
+        "locked_note" => "Read only when locked",
+        "and_flag" => false,
+        "or_flag" => false,
+        "and_note" => "All flags enabled",
+        "or_note" => "At least one flag enabled"
+      },
+      additional_errors: [
+        %{
+          "instancePath" => "/locked_note",
+          "message" => "External policy review required",
+          "keyword" => "external"
+        }
+      ]
     })
   end
 
@@ -997,7 +1119,14 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       schema: demo_schema(),
       uischema: demo_uischema(),
       data: %{"name" => "", "age" => 32, "subscribed" => true},
-      validation_mode: :validate_and_show
+      validation_mode: :validate_and_hide,
+      additional_errors: [
+        %{
+          "instancePath" => "/name",
+          "message" => "Name already reserved",
+          "keyword" => "external"
+        }
+      ]
     })
   end
 
@@ -1030,6 +1159,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         locale: nil,
         i18n: %{},
         validation_mode: :validate_and_show,
+        additional_errors: [],
         json_forms_opts: %{},
         json_forms_cells: [],
         json_forms_renderers: []
@@ -1037,6 +1167,12 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       overrides
     )
   end
+
+  defp maybe_set_additional_errors(state, errors) when is_list(errors) and errors != [] do
+    Engine.set_additional_errors(state, errors)
+  end
+
+  defp maybe_set_additional_errors(state, _errors), do: {:ok, state}
 
   defp demo_i18n(locale) do
     %{

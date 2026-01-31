@@ -85,6 +85,45 @@ defmodule JsonFormsLV.DispatchTest do
     assert Dispatch.pick_renderer(uischema, schema, registry, ctx, :unknown) == nil
   end
 
+  test "dispatch preserves renderer options" do
+    registry =
+      Registry.new(
+        control_renderers: [{JsonFormsLV.DispatchOptionRendererTest, foo: :bar}],
+        layout_renderers: [],
+        cell_renderers: []
+      )
+
+    ctx = %{}
+    uischema = %{"type" => "Control"}
+    schema = %{"type" => "string"}
+
+    {module, opts} = Dispatch.pick_renderer(uischema, schema, registry, ctx, :control)
+
+    assert module == JsonFormsLV.DispatchOptionRendererTest
+    assert opts == [foo: :bar]
+  end
+
+  test "dispatch skips invalid or raising testers" do
+    registry =
+      Registry.new(
+        control_renderers: [
+          JsonFormsLV.DispatchRaisingRendererTest,
+          JsonFormsLV.DispatchInvalidRendererTest,
+          JsonFormsLV.DispatchFallbackRendererTest
+        ],
+        layout_renderers: [],
+        cell_renderers: []
+      )
+
+    ctx = %{}
+    uischema = %{"type" => "Control"}
+    schema = %{"type" => "string"}
+
+    {module, _opts} = Dispatch.pick_renderer(uischema, schema, registry, ctx, :control)
+
+    assert module == JsonFormsLV.DispatchFallbackRendererTest
+  end
+
   test "unknown renderer produces fallback output" do
     uischema = %{"type" => "Mystery"}
 

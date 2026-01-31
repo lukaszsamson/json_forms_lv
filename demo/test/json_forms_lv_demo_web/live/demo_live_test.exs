@@ -237,7 +237,7 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     render_click(view, "select_scenario", %{"scenario" => "validation"})
 
     assert has_element?(view, "#demo-scenario", "validation")
-    assert has_element?(view, "#demo-validation-mode", "validate_and_show")
+    assert has_element?(view, "#demo-validation-mode", "validate_and_hide")
 
     render_click(view, "set_validation_mode", %{"mode" => "no_validation"})
 

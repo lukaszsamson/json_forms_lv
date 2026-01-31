@@ -1,7 +1,7 @@
 defmodule JsonFormsLV.EngineTest do
   use ExUnit.Case, async: true
 
-  alias JsonFormsLV.Engine
+  alias JsonFormsLV.{Engine, Errors}
 
   test "update_data sets data and touched" do
     {:ok, state} = Engine.init(%{}, %{"type" => "Control"}, %{}, %{})
@@ -71,6 +71,47 @@ defmodule JsonFormsLV.EngineTest do
 
     {:ok, state} = Engine.touch_all(state)
     assert Enum.any?(state.errors, &(&1.keyword == "minLength"))
+  end
+
+  test "set_validation_mode disables validator errors" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{"name" => %{"type" => "string", "minLength" => 1}}
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, %{"name" => ""}, %{})
+    assert Enum.any?(state.errors, &(&1.keyword == "minLength"))
+
+    {:ok, state} = Engine.set_validation_mode(state, :no_validation)
+    assert state.errors == []
+  end
+
+  test "set_additional_errors merges additional errors" do
+    {:ok, state} = Engine.init(%{}, %{}, %{}, %{})
+
+    {:ok, state} =
+      Engine.set_additional_errors(state, [
+        %{
+          "instancePath" => "/name",
+          "message" => "Custom error",
+          "keyword" => "external"
+        }
+      ])
+
+    assert Enum.any?(state.errors, &(&1.source == :additional))
+  end
+
+  test "validate_and_hide computes but hides validator errors" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{"name" => %{"type" => "string", "minLength" => 1}}
+    }
+
+    {:ok, state} =
+      Engine.init(schema, %{}, %{"name" => ""}, %{validation_mode: :validate_and_hide})
+
+    assert Enum.any?(state.errors, &(&1.keyword == "minLength"))
+    assert Errors.errors_for_control(state, "name") == []
   end
 
   test "init applies defaults when enabled" do

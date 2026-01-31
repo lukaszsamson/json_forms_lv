@@ -278,7 +278,7 @@ defmodule JsonFormsLV.Rules do
     case schema do
       %{"$ref" => ref} when map_size(schema) == 1 and is_binary(ref) ->
         if String.starts_with?(ref, "#") and not is_nil(validator.compiled) and
-             function_exported?(module, :validate_fragment, 4) do
+             validate_fragment_supported?(module) do
           {module.validate_fragment(validator.compiled, ref, value, validator_opts) == [], cache}
         else
           valid_schema_via_compile(schema, value, module, validator_opts, cache)
@@ -299,6 +299,13 @@ defmodule JsonFormsLV.Rules do
       end
 
     {result, cache}
+  end
+
+  defp validate_fragment_supported?(module) when is_atom(module) do
+    case Code.ensure_loaded(module) do
+      {:module, _} -> function_exported?(module, :validate_fragment, 4)
+      _ -> false
+    end
   end
 
   defp fetch_compiled(schema, module, opts, cache) do
