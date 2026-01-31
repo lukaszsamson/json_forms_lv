@@ -1,3 +1,15 @@
+defmodule JsonFormsLV.RulesRefValidator do
+  @behaviour JsonFormsLV.Validator
+
+  def compile(schema, _opts), do: {:ok, schema}
+  def validate(_compiled, _data, _opts), do: []
+
+  def validate_fragment(compiled, fragment_pointer, value, _opts) do
+    send(self(), {:validate_fragment, compiled, fragment_pointer, value})
+    if value == true, do: [], else: [:error]
+  end
+end
+
 defmodule JsonFormsLV.RulesTest do
   use ExUnit.Case, async: true
 
@@ -156,5 +168,96 @@ defmodule JsonFormsLV.RulesTest do
       end)
 
     assert log =~ "Unsupported composed rule condition"
+  end
+
+  test "evaluate_incremental updates only affected rules" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "flag" => %{"type" => "boolean"},
+        "count" => %{"type" => "number"},
+        "name" => %{"type" => "string"},
+        "age" => %{"type" => "number"}
+      }
+    }
+
+    name_control = %{
+      "type" => "Control",
+      "scope" => "#/properties/name",
+      "rule" => %{
+        "effect" => "HIDE",
+        "condition" => %{
+          "scope" => "#/properties/flag",
+          "schema" => %{"const" => true}
+        }
+      }
+    }
+
+    age_control = %{
+      "type" => "Control",
+      "scope" => "#/properties/age",
+      "rule" => %{
+        "effect" => "HIDE",
+        "condition" => %{
+          "scope" => "#/properties/count",
+          "schema" => %{"minimum" => 10}
+        }
+      }
+    }
+
+    uischema = %{
+      "type" => "VerticalLayout",
+      "elements" => [name_control, age_control]
+    }
+
+    data = %{"flag" => false, "count" => 0, "name" => "Ada", "age" => 30}
+    {:ok, state} = Engine.init(schema, uischema, data, %{})
+    rule_index = Rules.index(uischema)
+
+    name_key = Rules.render_key(Rules.element_key(name_control, [0]), "name")
+    age_key = Rules.render_key(Rules.element_key(age_control, [1]), "age")
+
+    assert state.rule_state[name_key][:visible?] == true
+    assert state.rule_state[age_key][:visible?] == true
+
+    data = %{"flag" => true, "count" => 10, "name" => "Ada", "age" => 30}
+
+    {rule_state, _cache} =
+      Rules.evaluate_incremental(
+        rule_index,
+        state.rule_state,
+        ["flag"],
+        data,
+        state.validator,
+        state.validator_opts,
+        state.rule_schema_cache || %{}
+      )
+
+    assert rule_state[name_key][:visible?] == false
+    assert rule_state[age_key][:visible?] == true
+  end
+
+  test "rule condition $ref uses validate_fragment" do
+    uischema = %{
+      "type" => "Control",
+      "scope" => "#/properties/name",
+      "rule" => %{
+        "effect" => "HIDE",
+        "condition" => %{
+          "scope" => "#/properties/flag",
+          "schema" => %{"$ref" => "#/definitions/flagTrue"}
+        }
+      }
+    }
+
+    data = %{"flag" => true, "name" => "Ada"}
+
+    validator = %{module: JsonFormsLV.RulesRefValidator, compiled: :compiled}
+    {rule_state, _cache} = Rules.evaluate(uischema, data, validator, [], %{})
+
+    render_key = Rules.render_key(Rules.element_key(uischema, []), "name")
+    assert rule_state[render_key][:visible?] == false
+
+    assert_receive {:validate_fragment, :compiled, "#/definitions/flagTrue", true}
   end
 end

@@ -17,6 +17,7 @@ defmodule JsonFormsLV.State do
             submitted: false,
             rule_state: %{},
             rule_schema_cache: %{},
+            rule_index: nil,
             registry: nil,
             i18n: %{},
             readonly: false,

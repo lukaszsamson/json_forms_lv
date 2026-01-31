@@ -21,6 +21,57 @@ defmodule JsonFormsLV.Rules do
     traverse(uischema, data, validator, validator_opts, "", [], %{}, cache)
   end
 
+  @type rule_entry :: %{
+          render_key: String.t(),
+          condition: map(),
+          effect: term(),
+          fail_when_undefined: boolean(),
+          scope_path: String.t() | nil
+        }
+
+  @spec index(map()) :: [rule_entry]
+  def index(uischema) when is_map(uischema) do
+    uischema
+    |> collect_index("", [], [])
+    |> Enum.reverse()
+  end
+
+  @spec evaluate_incremental(
+          [rule_entry],
+          map(),
+          [String.t()],
+          term(),
+          map() | nil,
+          keyword(),
+          map()
+        ) :: {map(), map()}
+  def evaluate_incremental(
+        rule_index,
+        rule_state,
+        changed_paths,
+        data,
+        validator,
+        validator_opts,
+        cache
+      )
+      when is_list(rule_index) and is_map(rule_state) and is_list(changed_paths) and
+             is_map(cache) do
+    entries = affected_entries(rule_index, changed_paths)
+
+    Enum.reduce(entries, {rule_state, cache}, fn entry, {rule_state, cache} ->
+      {flags, cache} = rule_state_for_entry(entry, data, validator, validator_opts, cache)
+      {Map.put(rule_state, entry.render_key, flags), cache}
+    end)
+  end
+
+  @spec affected_count([rule_entry], [String.t()]) :: non_neg_integer()
+  def affected_count(rule_index, changed_paths)
+      when is_list(rule_index) and is_list(changed_paths) do
+    rule_index
+    |> affected_entries(changed_paths)
+    |> length()
+  end
+
   @spec element_key(map(), [non_neg_integer()]) :: String.t()
   def element_key(uischema, element_path) do
     case uischema do
@@ -132,6 +183,21 @@ defmodule JsonFormsLV.Rules do
 
   defp valid_schema?(_schema, _value, nil, _opts, cache), do: {false, cache}
 
+  defp valid_schema?(
+         %{"$ref" => ref} = schema,
+         value,
+         %{module: module, compiled: compiled},
+         opts,
+         cache
+       )
+       when map_size(schema) == 1 and is_binary(ref) and not is_nil(compiled) do
+    if String.starts_with?(ref, "#") do
+      {module.validate_fragment(compiled, ref, value, opts) == [], cache}
+    else
+      {false, cache}
+    end
+  end
+
   defp valid_schema?(schema, value, validator, opts, cache) when is_map(validator) do
     module = validator.module
     validator_opts = opts || []
@@ -164,6 +230,97 @@ defmodule JsonFormsLV.Rules do
         {compiled, Map.put(cache, key, compiled)}
     end
   end
+
+  defp rule_state_for_entry(entry, data, validator, validator_opts, cache) do
+    {condition_true?, cache} =
+      condition_true?(
+        entry.condition,
+        data,
+        validator,
+        validator_opts,
+        entry.fail_when_undefined,
+        cache
+      )
+
+    {apply_effect(entry.effect, condition_true?), cache}
+  end
+
+  defp affected_entries(rule_index, changed_paths) do
+    changed_paths
+    |> Enum.filter(&is_binary/1)
+    |> Enum.uniq()
+    |> case do
+      [] ->
+        []
+
+      paths ->
+        Enum.filter(rule_index, fn entry ->
+          case entry.scope_path do
+            nil -> false
+            scope_path -> Enum.any?(paths, &paths_related?(scope_path, &1))
+          end
+        end)
+    end
+  end
+
+  defp paths_related?(path_a, path_b) when is_binary(path_a) and is_binary(path_b) do
+    segments_a = Path.parse_data_path(path_a)
+    segments_b = Path.parse_data_path(path_b)
+
+    prefix?(segments_a, segments_b) or prefix?(segments_b, segments_a)
+  end
+
+  defp prefix?([], _segments), do: true
+  defp prefix?(_segments, []), do: false
+
+  defp prefix?([segment | rest], [segment | target_rest]), do: prefix?(rest, target_rest)
+  defp prefix?(_segments, _target_segments), do: false
+
+  defp collect_index(uischema, parent_path, element_path, acc) do
+    path = element_path_for(uischema, parent_path)
+    element_key = element_key(uischema, element_path)
+    render_key = render_key(element_key, path)
+
+    acc =
+      case Map.get(uischema, "rule") do
+        rule when is_map(rule) ->
+          [rule_entry(rule, render_key) | acc]
+
+        _ ->
+          acc
+      end
+
+    case Map.get(uischema, "elements") do
+      elements when is_list(elements) ->
+        Enum.with_index(elements)
+        |> Enum.reduce(acc, fn {child, index}, acc ->
+          collect_index(child, path, element_path ++ [index], acc)
+        end)
+
+      _ ->
+        acc
+    end
+  end
+
+  defp rule_entry(rule, render_key) do
+    condition = Map.get(rule, "condition", %{})
+    effect = Map.get(rule, "effect")
+    fail_when_undefined = Map.get(rule, "failWhenUndefined", false)
+
+    %{
+      render_key: render_key,
+      condition: condition,
+      effect: effect,
+      fail_when_undefined: fail_when_undefined,
+      scope_path: scope_path(condition)
+    }
+  end
+
+  defp scope_path(%{"scope" => scope}) when is_binary(scope) do
+    Path.schema_pointer_to_data_path(scope)
+  end
+
+  defp scope_path(_condition), do: nil
 
   defp apply_effect("HIDE", true), do: %{visible?: false, enabled?: true}
   defp apply_effect("HIDE", false), do: %{visible?: true, enabled?: true}

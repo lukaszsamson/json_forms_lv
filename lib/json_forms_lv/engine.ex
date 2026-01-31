@@ -43,7 +43,7 @@ defmodule JsonFormsLV.Engine do
           }
 
           state = init_array_ids(state)
-          state = validate_state(state)
+          state = validate_state(state, :all)
 
           emit_telemetry(:init, started_at, %{validation_mode: state.validation_mode})
 
@@ -81,7 +81,7 @@ defmodule JsonFormsLV.Engine do
                 raw_inputs: raw_inputs
             }
 
-          state = validate_state(state)
+          state = validate_state(state, [data_path])
 
           emit_telemetry(:update_data, started_at, %{path: data_path, result: :ok})
 
@@ -109,7 +109,7 @@ defmodule JsonFormsLV.Engine do
                 raw_inputs: raw_inputs
             }
 
-          state = validate_state(state)
+          state = validate_state(state, [data_path])
 
           emit_telemetry(:update_data, started_at, %{path: data_path, result: :ok})
 
@@ -124,7 +124,7 @@ defmodule JsonFormsLV.Engine do
   @spec touch(State.t(), String.t()) :: {:ok, State.t()} | {:error, term()}
   def touch(%State{} = state, data_path) when is_binary(data_path) do
     touched = MapSet.put(state.touched, data_path)
-    {:ok, validate_state(%State{state | touched: touched})}
+    {:ok, validate_state(%State{state | touched: touched}, [])}
   end
 
   @doc """
@@ -149,7 +149,7 @@ defmodule JsonFormsLV.Engine do
         array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
 
         state = %State{state | data: updated_data, array_ids: array_ids}
-        {:ok, validate_state(state)}
+        {:ok, validate_state(state, [data_path])}
       end
     end
   end
@@ -169,7 +169,7 @@ defmodule JsonFormsLV.Engine do
         array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
         state = %State{state | data: updated_data, array_ids: array_ids}
         state = prune_array_state(state, data_path)
-        {:ok, validate_state(state)}
+        {:ok, validate_state(state, [data_path])}
       end
     end
   end
@@ -192,7 +192,7 @@ defmodule JsonFormsLV.Engine do
         array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
         state = %State{state | data: updated_data, array_ids: array_ids}
         state = prune_array_state(state, data_path)
-        {:ok, validate_state(state)}
+        {:ok, validate_state(state, [data_path])}
       end
     else
       false -> {:error, {:invalid_index, data_path}}
@@ -207,7 +207,7 @@ defmodule JsonFormsLV.Engine do
   def set_additional_errors(%State{} = state, additional_errors)
       when is_list(additional_errors) do
     state = %State{state | additional_errors: additional_errors}
-    {:ok, validate_state(state)}
+    {:ok, validate_state(state, [])}
   end
 
   @doc """
@@ -216,7 +216,7 @@ defmodule JsonFormsLV.Engine do
   @spec set_validation_mode(State.t(), atom()) :: {:ok, State.t()}
   def set_validation_mode(%State{} = state, mode) when is_atom(mode) do
     state = %State{state | validation_mode: mode}
-    {:ok, validate_state(state)}
+    {:ok, validate_state(state, [])}
   end
 
   @doc """
@@ -228,7 +228,7 @@ defmodule JsonFormsLV.Engine do
     touched = Enum.reduce(paths, state.touched, &MapSet.put(&2, &1))
 
     state = %State{state | touched: touched, submitted: true}
-    {:ok, validate_state(state)}
+    {:ok, validate_state(state, [])}
   end
 
   @doc """
@@ -265,13 +265,21 @@ defmodule JsonFormsLV.Engine do
       state.validator == nil or state.validator.module != validator or
         state.validator_opts != validator_opts
 
+    uischema_changed? = uischema != state.uischema
     needs_compile? = schema != state.schema or validator_changed?
 
     rule_schema_cache =
-      if uischema != state.uischema or validator_changed? do
+      if uischema_changed? or validator_changed? do
         %{}
       else
         state.rule_schema_cache || %{}
+      end
+
+    rule_index =
+      if uischema_changed? do
+        nil
+      else
+        state.rule_index
       end
 
     with {:ok, resolved_schema} <- resolver.resolve(schema, opts),
@@ -284,10 +292,11 @@ defmodule JsonFormsLV.Engine do
           opts: opts,
           validator: %{module: validator, compiled: compiled},
           validator_opts: validator_opts,
-          rule_schema_cache: rule_schema_cache
+          rule_schema_cache: rule_schema_cache,
+          rule_index: rule_index
       }
 
-      {:ok, validate_state(state)}
+      {:ok, validate_state(state, :all)}
     end
   end
 
@@ -581,17 +590,11 @@ defmodule JsonFormsLV.Engine do
   defp object_schema?(%{"properties" => props}) when is_map(props), do: true
   defp object_schema?(_schema), do: false
 
-  defp validate_state(%State{} = state) do
+  defp validate_state(%State{} = state, changed_paths) do
     started_at = System.monotonic_time()
 
-    {rule_state, rule_schema_cache} =
-      Rules.evaluate(
-        state.uischema,
-        state.data,
-        state.validator,
-        state.validator_opts,
-        state.rule_schema_cache || %{}
-      )
+    {rule_state, rule_schema_cache, rule_index, rule_stats} =
+      evaluate_rules(state, changed_paths)
 
     additional_errors = Errors.normalize_additional(state.additional_errors || [])
 
@@ -618,12 +621,113 @@ defmodule JsonFormsLV.Engine do
       | errors: errors,
         additional_errors: additional_errors,
         rule_state: rule_state,
-        rule_schema_cache: rule_schema_cache
+        rule_schema_cache: rule_schema_cache,
+        rule_index: rule_index
     }
 
-    emit_telemetry(:validate, started_at, %{error_count: length(errors)})
+    emit_telemetry(:validate, started_at, Map.merge(%{error_count: length(errors)}, rule_stats))
 
     state
+  end
+
+  defp evaluate_rules(%State{} = state, changed_paths) do
+    rule_schema_cache = state.rule_schema_cache || %{}
+    rule_index_missing? = state.rule_index == nil
+    rule_index = state.rule_index || Rules.index(state.uischema)
+    rules_total = length(rule_index)
+    changed_paths_count = if is_list(changed_paths), do: length(changed_paths), else: 0
+
+    cond do
+      rule_index_missing? ->
+        {rule_state, rule_schema_cache} =
+          Rules.evaluate(
+            state.uischema,
+            state.data,
+            state.validator,
+            state.validator_opts,
+            rule_schema_cache
+          )
+
+        rule_stats = %{
+          rules_total: rules_total,
+          rules_evaluated: rules_total,
+          rules_incremental: false,
+          rules_changed_paths: changed_paths_count
+        }
+
+        {rule_state, rule_schema_cache, rule_index, rule_stats}
+
+      changed_paths == :all ->
+        {rule_state, rule_schema_cache} =
+          Rules.evaluate(
+            state.uischema,
+            state.data,
+            state.validator,
+            state.validator_opts,
+            rule_schema_cache
+          )
+
+        rule_stats = %{
+          rules_total: rules_total,
+          rules_evaluated: rules_total,
+          rules_incremental: false,
+          rules_changed_paths: changed_paths_count
+        }
+
+        {rule_state, rule_schema_cache, rule_index, rule_stats}
+
+      is_list(changed_paths) and changed_paths == [] ->
+        rule_stats = %{
+          rules_total: rules_total,
+          rules_evaluated: 0,
+          rules_incremental: true,
+          rules_changed_paths: 0
+        }
+
+        {state.rule_state || %{}, rule_schema_cache, rule_index, rule_stats}
+
+      is_list(changed_paths) ->
+        rules_evaluated = Rules.affected_count(rule_index, changed_paths)
+
+        {rule_state, rule_schema_cache} =
+          Rules.evaluate_incremental(
+            rule_index,
+            state.rule_state || %{},
+            changed_paths,
+            state.data,
+            state.validator,
+            state.validator_opts,
+            rule_schema_cache
+          )
+
+        rule_stats = %{
+          rules_total: rules_total,
+          rules_evaluated: rules_evaluated,
+          rules_incremental: true,
+          rules_changed_paths: changed_paths_count
+        }
+
+        {rule_state, rule_schema_cache, rule_index, rule_stats}
+
+      true ->
+        {rule_state, rule_schema_cache} =
+          Rules.evaluate(
+            state.uischema,
+            state.data,
+            state.validator,
+            state.validator_opts,
+            rule_schema_cache
+          )
+
+        rule_stats = %{
+          rules_total: rules_total,
+          rules_evaluated: rules_total,
+          rules_incremental: false,
+          rules_changed_paths: changed_paths_count
+        }
+
+        {rule_state, rule_schema_cache, rule_index, rule_stats}
+    end
   end
 
   defp emit_telemetry(event, started_at, metadata) when is_atom(event) do

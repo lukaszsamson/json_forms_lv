@@ -40,6 +40,10 @@ defmodule JsonFormsLV.Telemetry do
   Metadata:
 
     * `:error_count`
+    * `:rules_total`
+    * `:rules_evaluated`
+    * `:rules_incremental`
+    * `:rules_changed_paths`
 
   ### `[:json_forms_lv, :dispatch]`
 
