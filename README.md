@@ -196,10 +196,39 @@ at init time. Provide an `enum_loader` option (or rely on the default Req loader
   })
 ```
 
+Dynamic enums also support `x-dependents` to clear related fields when a value changes.
+Call `Engine.refresh_enums/2` (or dispatch `:refresh_enums`) to re-fetch values.
+Loading/error state is exposed via `state.dynamic_enums_status` and
+`data-jf-enum-status` attributes on enum inputs.
+
 ### Dispatch actions
 
 `Engine.dispatch/2` supports `{:set_locale, locale}`, `{:set_translator, fun}`,
 `{:update_errors, errors}`, and `:validate` for JSON Forms-style action handling.
+
+It also supports `:refresh_enums`, `{:refresh_enums, opts}`, `{:add_renderer, kind, entry}`,
+`{:remove_renderer, kind, module}`, and `{:set_registry, registry}`.
+
+### Async schema loading
+
+For async schema/uischema loading in LiveView, use `assign_async/3` and initialize
+`Engine.init/4` after the async assign resolves. Example:
+
+```elixir
+def mount(_params, _session, socket) do
+  socket =
+    assign_async(socket, :schema, fn ->
+      {:ok, %{schema: load_schema(), uischema: load_uischema()}}
+    end)
+
+  {:ok, socket}
+end
+
+def handle_async(:schema, {:ok, %{schema: schema, uischema: uischema}}, socket) do
+  {:ok, state} = JsonFormsLV.Engine.init(schema, uischema, %{}, %{})
+  {:noreply, assign(socket, state: state, schema: schema, uischema: uischema)}
+end
+```
 
 ### writeOnly handling
 

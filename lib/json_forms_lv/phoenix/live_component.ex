@@ -156,6 +156,15 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
     end
   end
 
+  def handle_event("jf:refresh_enums", params, socket) do
+    opts = Map.get(params, "opts", %{})
+
+    case Engine.refresh_enums(socket.assigns.state, opts) do
+      {:ok, state} -> {:noreply, assign(socket, :state, state)}
+      {:error, _reason} -> {:noreply, socket}
+    end
+  end
+
   def handle_event("jf:add_item", %{"path" => path} = params, socket) do
     opts = Map.get(params, "opts", %{})
     notify = socket.assigns[:notify]

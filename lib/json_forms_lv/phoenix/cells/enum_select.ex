@@ -6,6 +6,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
   use Phoenix.Component
 
   alias JsonFormsLV.Phoenix.Cells.EnumOptions
+  alias JsonFormsLV.DynamicEnums
   @behaviour JsonFormsLV.Renderer
 
   @impl JsonFormsLV.Renderer
@@ -35,6 +36,8 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
     list_id = if autocomplete?, do: "#{assigns.id}-list"
     placeholder = if allow_empty?, do: empty_label
     locale = locale(assigns)
+    enum_status = enum_status(assigns)
+    enum_status_value = status_value(enum_status)
 
     assigns =
       assigns
@@ -51,6 +54,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
       |> assign(:list_id, list_id)
       |> assign(:placeholder, placeholder)
       |> assign(:locale, locale)
+      |> assign(:enum_status, enum_status_value)
       |> assign(:aria_describedby, assigns[:aria_describedby])
       |> assign(:aria_invalid, assigns[:aria_invalid])
       |> assign(:aria_required, assigns[:aria_required])
@@ -66,6 +70,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
         placeholder={@placeholder}
         autocomplete={@autocomplete}
         lang={@locale}
+        data-jf-enum-status={@enum_status}
         disabled={@disabled?}
         aria-describedby={@aria_describedby}
         aria-invalid={@aria_invalid}
@@ -86,6 +91,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
       <select
         id={@id}
         name={@path}
+        data-jf-enum-status={@enum_status}
         lang={@locale}
         disabled={@disabled?}
         aria-describedby={@aria_describedby}
@@ -140,6 +146,16 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
       _ -> nil
     end
   end
+
+  defp enum_status(assigns) do
+    status_map = Map.get(assigns.ctx || %{}, :dynamic_enums_status) || %{}
+    DynamicEnums.status_for(assigns.schema || %{}, assigns.config || %{}, status_map)
+  end
+
+  defp status_value(:ok), do: "ok"
+  defp status_value({:loading, _info}), do: "loading"
+  defp status_value({:error, _reason}), do: "error"
+  defp status_value(_), do: nil
 
   defp locale(assigns) do
     Map.get(assigns.i18n || %{}, :locale) || Map.get(assigns.i18n || %{}, "locale")

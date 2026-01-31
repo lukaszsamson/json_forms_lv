@@ -61,6 +61,30 @@ defmodule JsonFormsLV.Registry do
   end
 
   @doc """
+  Remove a control renderer by module.
+  """
+  @spec remove_control(t(), module()) :: t()
+  def remove_control(%__MODULE__{} = registry, module) when is_atom(module) do
+    %__MODULE__{registry | control_renderers: remove_entries(registry.control_renderers, module)}
+  end
+
+  @doc """
+  Remove a layout renderer by module.
+  """
+  @spec remove_layout(t(), module()) :: t()
+  def remove_layout(%__MODULE__{} = registry, module) when is_atom(module) do
+    %__MODULE__{registry | layout_renderers: remove_entries(registry.layout_renderers, module)}
+  end
+
+  @doc """
+  Remove a cell renderer by module.
+  """
+  @spec remove_cell(t(), module()) :: t()
+  def remove_cell(%__MODULE__{} = registry, module) when is_atom(module) do
+    %__MODULE__{registry | cell_renderers: remove_entries(registry.cell_renderers, module)}
+  end
+
+  @doc """
   Register multiple control renderers with highest priority.
   """
   @spec register_controls(t(), [entry()]) :: t()
@@ -101,4 +125,12 @@ defmodule JsonFormsLV.Registry do
 
   defp normalize_entries(entries) when is_list(entries), do: entries
   defp normalize_entries(_entries), do: []
+
+  defp remove_entries(entries, module) do
+    Enum.reject(entries, fn entry -> entry_module(entry) == module end)
+  end
+
+  defp entry_module({module, _opts}) when is_atom(module), do: module
+  defp entry_module(module) when is_atom(module), do: module
+  defp entry_module(_entry), do: nil
 end

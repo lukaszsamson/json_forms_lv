@@ -5,6 +5,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumRadio do
 
   use Phoenix.Component
 
+  alias JsonFormsLV.DynamicEnums
   alias JsonFormsLV.Phoenix.Cells.EnumOptions
   @behaviour JsonFormsLV.Renderer
 
@@ -26,6 +27,8 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumRadio do
     change_event = if assigns.binding == :per_input, do: assigns.on_change
     blur_event = assigns.on_blur
     locale = locale(assigns)
+    enum_status = enum_status(assigns)
+    enum_status_value = status_value(enum_status)
 
     assigns =
       assigns
@@ -35,13 +38,20 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumRadio do
       |> assign(:change_event, change_event)
       |> assign(:blur_event, blur_event)
       |> assign(:locale, locale)
+      |> assign(:enum_status, enum_status_value)
       |> assign(:aria_describedby, assigns[:aria_describedby])
       |> assign(:aria_invalid, assigns[:aria_invalid])
       |> assign(:aria_required, assigns[:aria_required])
       |> assign(:label, assigns[:label])
 
     ~H"""
-    <fieldset id={@id} data-jf-radio class="jf-radio-group" role="radiogroup">
+    <fieldset
+      id={@id}
+      data-jf-radio
+      data-jf-enum-status={@enum_status}
+      class="jf-radio-group"
+      role="radiogroup"
+    >
       <%= if @label do %>
         <legend class="jf-radio-legend">{@label}</legend>
       <% end %>
@@ -72,6 +82,16 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumRadio do
   defp disabled?(assigns) do
     not assigns.enabled? or assigns.readonly?
   end
+
+  defp enum_status(assigns) do
+    status_map = Map.get(assigns.ctx || %{}, :dynamic_enums_status) || %{}
+    DynamicEnums.status_for(assigns.schema || %{}, assigns.config || %{}, status_map)
+  end
+
+  defp status_value(:ok), do: "ok"
+  defp status_value({:loading, _info}), do: "loading"
+  defp status_value({:error, _reason}), do: "error"
+  defp status_value(_), do: nil
 
   defp locale(assigns) do
     Map.get(assigns.i18n || %{}, :locale) || Map.get(assigns.i18n || %{}, "locale")

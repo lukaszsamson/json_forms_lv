@@ -132,4 +132,107 @@ defmodule JsonFormsLV.Testers do
       tester.(uischema, schema, ctx) != true
     end
   end
+
+  @doc """
+  Increase a tester rank by the given amount.
+  """
+  @spec with_increased_rank(function(), non_neg_integer()) ::
+          (map(), map() | nil, map() -> non_neg_integer() | :not_applicable)
+  def with_increased_rank(tester, increment) when is_function(tester) and is_integer(increment) do
+    fn uischema, schema, ctx ->
+      case tester.(uischema, schema, ctx) do
+        :not_applicable -> :not_applicable
+        rank when is_integer(rank) -> rank + increment
+        true -> increment
+        false -> :not_applicable
+        _ -> :not_applicable
+      end
+    end
+  end
+
+  @doc """
+  Match a schema predicate.
+  """
+  @spec schema_matches(function()) :: (map(), map() | nil, map() -> boolean())
+  def schema_matches(predicate) when is_function(predicate) do
+    arity = function_arity(predicate)
+
+    fn uischema, schema, ctx ->
+      case arity do
+        1 -> predicate.(schema)
+        2 -> predicate.(schema, ctx)
+        _ -> predicate.(uischema, schema, ctx)
+      end
+    end
+  end
+
+  @doc """
+  Match a schema fragment at the given pointer.
+  """
+  @spec schema_sub_path_matches(String.t(), function()) :: (map(), map() | nil, map() ->
+                                                              boolean())
+  def schema_sub_path_matches(pointer, predicate)
+      when is_binary(pointer) and is_function(predicate) do
+    arity = function_arity(predicate)
+
+    fn uischema, schema, ctx ->
+      case JsonFormsLV.Schema.resolve_pointer(schema || %{}, pointer) do
+        {:ok, fragment} ->
+          case arity do
+            1 -> predicate.(fragment)
+            2 -> predicate.(fragment, ctx)
+            _ -> predicate.(uischema, fragment, ctx)
+          end
+
+        {:error, _} ->
+          false
+      end
+    end
+  end
+
+  @doc """
+  Match date controls (`format: "date"`).
+  """
+  @spec is_date_control() :: (map(), map() | nil, map() -> boolean())
+  def is_date_control do
+    all_of([ui_type_is("Control"), format_is("date")])
+  end
+
+  @doc """
+  Match time controls (`format: "time"`).
+  """
+  @spec is_time_control() :: (map(), map() | nil, map() -> boolean())
+  def is_time_control do
+    all_of([ui_type_is("Control"), format_is("time")])
+  end
+
+  @doc """
+  Match range controls (number/integer with slider option).
+  """
+  @spec is_range_control() :: (map(), map() | nil, map() -> boolean())
+  def is_range_control do
+    fn uischema, schema, _ctx ->
+      options = Map.get(uischema || %{}, "options", %{})
+      slider? = Map.get(options, "slider") == true
+
+      type =
+        case Map.get(schema || %{}, "type") do
+          type when is_binary(type) -> type
+          types when is_list(types) -> types
+          _ -> nil
+        end
+
+      slider? and
+        (type == "number" or type == "integer" or
+           (is_list(type) and
+              ("number" in type or "integer" in type)))
+    end
+  end
+
+  defp function_arity(fun) do
+    case Function.info(fun, :arity) do
+      {:arity, arity} -> arity
+      _ -> 1
+    end
+  end
 end

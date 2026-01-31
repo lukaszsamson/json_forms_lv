@@ -65,4 +65,45 @@ defmodule JsonFormsLV.TestersTest do
     assert tester.(%{"type" => "Group"}, nil, %{}) == true
     assert tester.(%{"type" => "Control"}, nil, %{}) == false
   end
+
+  test "with_increased_rank adjusts rank" do
+    base = fn _uischema, _schema, _ctx -> 10 end
+    tester = Testers.with_increased_rank(base, 5)
+
+    assert tester.(%{}, %{}, %{}) == 15
+  end
+
+  test "schema_matches applies predicate" do
+    tester = Testers.schema_matches(fn schema -> Map.get(schema, "type") == "string" end)
+
+    assert tester.(%{}, %{"type" => "string"}, %{}) == true
+    assert tester.(%{}, %{"type" => "number"}, %{}) == false
+  end
+
+  test "schema_sub_path_matches resolves pointer" do
+    tester =
+      Testers.schema_sub_path_matches("#/properties/name", fn schema ->
+        Map.get(schema, "type") == "string"
+      end)
+
+    schema = %{"properties" => %{"name" => %{"type" => "string"}}}
+
+    assert tester.(%{}, schema, %{}) == true
+  end
+
+  test "is_date_control and is_time_control helpers" do
+    date = Testers.is_date_control()
+    time = Testers.is_time_control()
+
+    assert date.(%{"type" => "Control"}, %{"format" => "date"}, %{}) == true
+    assert time.(%{"type" => "Control"}, %{"format" => "time"}, %{}) == true
+    assert date.(%{"type" => "Control"}, %{"format" => "date-time"}, %{}) == false
+  end
+
+  test "is_range_control helper" do
+    tester = Testers.is_range_control()
+
+    assert tester.(%{"options" => %{"slider" => true}}, %{"type" => "number"}, %{}) == true
+    assert tester.(%{"options" => %{"slider" => true}}, %{"type" => "string"}, %{}) == false
+  end
 end

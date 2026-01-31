@@ -14,7 +14,7 @@ defmodule JsonFormsLV.DynamicEnumsTest do
       }
     }
 
-    loader = fn url, _cache ->
+    loader = fn url, _opts ->
       assert url == "https://example.com/enums/status"
       {:ok, ["open", "closed"]}
     end
@@ -36,7 +36,7 @@ defmodule JsonFormsLV.DynamicEnumsTest do
       }
     }
 
-    loader = fn url, _cache ->
+    loader = fn url, _opts ->
       assert url == "https://example.com/enums/priorities"
       {:ok, %{"enum" => ["low", "high"]}}
     end
@@ -57,7 +57,7 @@ defmodule JsonFormsLV.DynamicEnumsTest do
       }
     }
 
-    loader = fn _url, _cache ->
+    loader = fn _url, _opts ->
       {:ok, [%{"const" => "a", "title" => "A"}, %{"const" => "b", "title" => "B"}]}
     end
 
@@ -77,10 +77,28 @@ defmodule JsonFormsLV.DynamicEnumsTest do
       }
     }
 
-    loader = fn _url, _cache -> {:ok, ["open", "closed"]} end
+    loader = fn _url, _opts -> {:ok, ["open", "closed"]} end
 
     {:ok, state} = Engine.init(schema, %{}, %{}, %{enum_loader: loader})
 
     assert state.schema["properties"]["status"]["enum"] == ["open", "closed"]
+  end
+
+  test "resolver reports loading status" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "status" => %{
+          "type" => "string",
+          "x-url" => "https://example.com/enums/status"
+        }
+      }
+    }
+
+    loader = fn _url, _opts -> {:loading, :pending} end
+
+    {:ok, _resolved, status} = DynamicEnums.resolve_with_status(schema, %{enum_loader: loader})
+
+    assert status["https://example.com/enums/status"] == {:loading, :pending}
   end
 end

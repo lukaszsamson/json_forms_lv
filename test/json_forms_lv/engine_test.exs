@@ -129,6 +129,28 @@ defmodule JsonFormsLV.EngineTest do
     assert state.i18n[:translate] == translate
   end
 
+  test "x-dependents clears dependent data" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "status" => %{
+          "type" => "string",
+          "x-dependents" => ["details", "meta.note"]
+        },
+        "details" => %{"type" => "string"},
+        "meta" => %{"type" => "object", "properties" => %{"note" => %{"type" => "string"}}}
+      }
+    }
+
+    data = %{"status" => "open", "details" => "abc", "meta" => %{"note" => "keep"}}
+    {:ok, state} = Engine.init(schema, %{}, data, %{})
+
+    {:ok, state} = Engine.update_data(state, "status", "closed", %{})
+
+    refute Map.has_key?(state.data, "details")
+    assert state.data["meta"] == %{}
+  end
+
   test "validate re-runs validation" do
     schema = %{
       "type" => "object",
@@ -142,6 +164,26 @@ defmodule JsonFormsLV.EngineTest do
     assert Enum.any?(state.errors, &(&1.keyword == "minLength"))
   end
 
+  test "refresh_enums updates schema" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "status" => %{
+          "type" => "string",
+          "x-url" => "https://example.com/enums/status"
+        }
+      }
+    }
+
+    loader = fn _url, _opts -> {:ok, ["open", "closed"]} end
+    {:ok, state} = Engine.init(schema, %{}, %{}, %{enum_loader: loader})
+
+    loader = fn _url, _opts -> {:ok, ["open", "closed", "hold"]} end
+    {:ok, state} = Engine.refresh_enums(state, %{enum_loader: loader})
+
+    assert state.schema["properties"]["status"]["enum"] == ["open", "closed", "hold"]
+  end
+
   test "set_combinator stores selection" do
     {:ok, state} = Engine.init(%{}, %{}, %{}, %{})
 
@@ -150,6 +192,22 @@ defmodule JsonFormsLV.EngineTest do
 
     {:ok, state} = Engine.set_combinator(state, "prefs", ["0", "2"])
     assert state.combinator_state["prefs"] == [0, 2]
+  end
+
+  test "add_renderer and remove_renderer update registry" do
+    {:ok, state} = Engine.init(%{}, %{}, %{}, %{})
+
+    {:ok, state} = Engine.add_renderer(state, :cell, JsonFormsLV.Phoenix.Cells.StringInput)
+
+    assert Enum.any?(state.registry.cell_renderers, fn entry ->
+             match?(JsonFormsLV.Phoenix.Cells.StringInput, entry)
+           end)
+
+    {:ok, state} = Engine.remove_renderer(state, :cell, JsonFormsLV.Phoenix.Cells.StringInput)
+
+    refute Enum.any?(state.registry.cell_renderers, fn entry ->
+             match?(JsonFormsLV.Phoenix.Cells.StringInput, entry)
+           end)
   end
 
   test "validate_and_hide computes but hides validator errors" do

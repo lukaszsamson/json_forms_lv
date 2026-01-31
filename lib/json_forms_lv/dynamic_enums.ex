@@ -8,63 +8,102 @@ defmodule JsonFormsLV.DynamicEnums do
 
   @spec resolve(map(), map() | keyword()) :: {:ok, map()} | {:error, term()}
   def resolve(schema, opts \\ %{}) when is_map(schema) do
-    opts = normalize_opts(opts)
-    loader = enum_loader(opts)
-    base_url = enum_base_url(schema, opts)
-
-    case resolve_node(schema, loader, base_url, %{}) do
-      {:ok, resolved, _cache} -> {:ok, resolved}
+    case resolve_with_status(schema, opts) do
+      {:ok, resolved, _status} -> {:ok, resolved}
       {:error, _} = error -> error
     end
   end
 
-  def resolve(_schema, _opts), do: {:error, {:invalid_schema, :expected_map}}
+  @spec resolve_with_status(map(), map() | keyword()) :: {:ok, map(), map()} | {:error, term()}
+  def resolve_with_status(schema, opts \\ %{}) when is_map(schema) do
+    opts = normalize_opts(opts)
+    loader = enum_loader(opts)
+    base_url = enum_base_url(schema, opts)
 
-  defp resolve_node(schema, loader, base_url, cache) when is_map(schema) do
-    case maybe_resolve_enum(schema, loader, base_url, cache) do
-      {:ok, schema, cache} ->
-        schema
-        |> Enum.reduce_while({:ok, %{}, cache}, fn {key, value}, {:ok, acc, cache} ->
-          case resolve_node(value, loader, base_url, cache) do
-            {:ok, resolved, cache} -> {:cont, {:ok, Map.put(acc, key, resolved), cache}}
-            {:error, _} = error -> {:halt, error}
-          end
-        end)
-
-      {:error, _} = error ->
-        error
+    case resolve_node(schema, loader, base_url, %{}, %{}) do
+      {:ok, resolved, _cache, status} -> {:ok, resolved, status}
+      {:error, _} = error -> error
     end
   end
 
-  defp resolve_node(list, loader, base_url, cache) when is_list(list) do
+  def resolve_with_status(_schema, _opts), do: {:error, {:invalid_schema, :expected_map}}
+
+  def resolve(_schema, _opts), do: {:error, {:invalid_schema, :expected_map}}
+
+  @spec status_for(map(), map() | keyword(), map()) :: term()
+  def status_for(schema, opts, status_map) when is_map(schema) and is_map(status_map) do
+    url = Map.get(schema, "x-url") || Map.get(schema, "x-endpoint")
+    opts = normalize_opts(opts)
+
+    if is_binary(url) do
+      case resolve_url(url, enum_base_url(schema, opts)) do
+        {:ok, full_url} -> Map.get(status_map, full_url)
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  def status_for(_schema, _opts, _status_map), do: nil
+
+  defp resolve_node(schema, loader, base_url, cache, status) when is_map(schema) do
+    {:ok, schema, cache, status} = maybe_resolve_enum(schema, loader, base_url, cache, status)
+
+    schema
+    |> Enum.reduce_while({:ok, %{}, cache, status}, fn {key, value}, {:ok, acc, cache, status} ->
+      case resolve_node(value, loader, base_url, cache, status) do
+        {:ok, resolved, cache, status} ->
+          {:cont, {:ok, Map.put(acc, key, resolved), cache, status}}
+
+        {:error, _} = error ->
+          {:halt, error}
+      end
+    end)
+  end
+
+  defp resolve_node(list, loader, base_url, cache, status) when is_list(list) do
     list
-    |> Enum.reduce_while({:ok, [], cache}, fn value, {:ok, acc, cache} ->
-      case resolve_node(value, loader, base_url, cache) do
-        {:ok, resolved, cache} -> {:cont, {:ok, [resolved | acc], cache}}
+    |> Enum.reduce_while({:ok, [], cache, status}, fn value, {:ok, acc, cache, status} ->
+      case resolve_node(value, loader, base_url, cache, status) do
+        {:ok, resolved, cache, status} -> {:cont, {:ok, [resolved | acc], cache, status}}
         {:error, _} = error -> {:halt, error}
       end
     end)
     |> case do
-      {:ok, resolved, cache} -> {:ok, Enum.reverse(resolved), cache}
+      {:ok, resolved, cache, status} -> {:ok, Enum.reverse(resolved), cache, status}
       error -> error
     end
   end
 
-  defp resolve_node(value, _loader, _base_url, cache), do: {:ok, value, cache}
+  defp resolve_node(value, _loader, _base_url, cache, status), do: {:ok, value, cache, status}
 
-  defp maybe_resolve_enum(schema, loader, base_url, cache) do
+  defp maybe_resolve_enum(schema, loader, base_url, cache, status) do
     url = Map.get(schema, "x-url") || Map.get(schema, "x-endpoint")
 
     if is_binary(url) do
-      with {:ok, full_url} <- resolve_url(url, base_url),
-           {:ok, values, cache} <- fetch_enum(full_url, loader, cache),
-           {:ok, schema} <- apply_enum(schema, values) do
-        {:ok, schema, cache}
-      else
-        {:error, _} = error -> error
+      case resolve_url(url, base_url) do
+        {:ok, full_url} ->
+          case fetch_enum(full_url, loader, cache) do
+            {:ok, values, cache} ->
+              case apply_enum(schema, values) do
+                {:ok, schema} ->
+                  {:ok, schema, cache, Map.put(status, full_url, :ok)}
+
+                {:error, reason} ->
+                  {:ok, schema, cache, Map.put(status, full_url, {:error, reason})}
+              end
+
+            {:loading, cache, info} ->
+              {:ok, schema, cache, Map.put(status, full_url, {:loading, info})}
+
+            {:error, reason} ->
+              {:ok, schema, cache, Map.put(status, full_url, {:error, reason})}
+          end
+
+        {:error, reason} ->
+          {:ok, schema, cache, Map.put(status, url, {:error, reason})}
       end
     else
-      {:ok, schema, cache}
+      {:ok, schema, cache, status}
     end
   end
 
@@ -76,7 +115,8 @@ defmodule JsonFormsLV.DynamicEnums do
       _ ->
         case loader.(url) do
           {:ok, values} -> {:ok, values, Map.put(cache, url, values)}
-          {:error, _} = error -> error
+          {:loading, info} -> {:loading, cache, info}
+          {:error, reason} -> {:error, reason}
         end
     end
   end

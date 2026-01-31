@@ -163,6 +163,16 @@ defmodule JsonFormsLV.Phoenix.Components do
       )
 
     registry = Registry.merge(custom, default_registry())
+
+    registry =
+      case assigns.state do
+        %State{registry: %Registry{} = state_registry} ->
+          Registry.merge(state_registry, registry)
+
+        _ ->
+          registry
+      end
+
     assign(assigns, :registry, registry)
   end
 
@@ -262,6 +272,7 @@ defmodule JsonFormsLV.Phoenix.Components do
         config: config,
         i18n: state.i18n,
         readonly: state.readonly,
+        dynamic_enums_status: state.dynamic_enums_status,
         translate:
           Map.get(state.i18n || %{}, :translate) || Map.get(state.i18n || %{}, "translate"),
         element_key: element_key,

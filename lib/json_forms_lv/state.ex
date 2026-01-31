@@ -26,5 +26,6 @@ defmodule JsonFormsLV.State do
             schema_index: nil,
             uischema_index: nil,
             array_ids: %{},
-            combinator_state: %{}
+            combinator_state: %{},
+            dynamic_enums_status: %{}
 end

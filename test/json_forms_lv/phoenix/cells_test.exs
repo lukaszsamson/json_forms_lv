@@ -285,6 +285,28 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
     assert html =~ ~s/option value="beta"/
   end
 
+  test "enum select exposes dynamic enum status" do
+    schema = %{
+      "type" => "string",
+      "enum" => ["alpha"],
+      "x-url" => "https://example.com/enums/status"
+    }
+
+    assigns =
+      base_assigns(%{
+        schema: schema,
+        root_schema: %{"type" => "object", "properties" => %{"field" => schema}},
+        config: %{},
+        ctx: %{
+          dynamic_enums_status: %{"https://example.com/enums/status" => {:loading, :pending}}
+        }
+      })
+
+    html = render_component(&EnumSelect.render/1, assigns)
+
+    assert html =~ ~s/data-jf-enum-status="loading"/
+  end
+
   test "time input uses placeholder" do
     assigns =
       base_assigns(%{

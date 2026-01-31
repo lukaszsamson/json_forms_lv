@@ -6,10 +6,11 @@ defmodule JsonFormsLV.Engine do
   alias JsonFormsLV.{
     Coercion,
     Data,
-    Errors,
     DynamicEnums,
+    Errors,
     Limits,
     Path,
+    Registry,
     Rules,
     Schema,
     State,
@@ -46,7 +47,8 @@ defmodule JsonFormsLV.Engine do
         validator_opts = Map.get(opts_with_limits, :validator_opts, [])
 
         with {:ok, resolved_schema} <- resolver.resolve(schema, opts_with_limits),
-             {:ok, resolved_schema} <- DynamicEnums.resolve(resolved_schema, opts_with_limits),
+             {:ok, resolved_schema, enum_status} <-
+               DynamicEnums.resolve_with_status(resolved_schema, opts_with_limits),
              {:ok, compiled} <- validator.compile(resolved_schema, validator_opts),
              data <- maybe_apply_defaults(data, resolved_schema, opts_with_limits),
              :ok <- ensure_data_size(data, opts_with_limits) do
@@ -65,7 +67,8 @@ defmodule JsonFormsLV.Engine do
               validation_mode: validation_mode,
               validator: %{module: validator, compiled: compiled},
               validator_opts: validator_opts,
-              combinator_state: combinator_state
+              combinator_state: combinator_state,
+              dynamic_enums_status: enum_status
             }
 
             state = init_array_ids(state)
@@ -99,14 +102,18 @@ defmodule JsonFormsLV.Engine do
         {:error, _} -> nil
       end
 
+    dependents = dependent_paths(schema)
+
     case Coercion.coerce_with_raw(raw_value, schema, state.opts) do
       {:ok, coerced_value} ->
         with {:ok, updated_data} <-
                put_coerced_value(state.data, data_path, coerced_value, schema, raw_value),
+             {updated_data, cleared_paths} <- clear_dependents(updated_data, dependents),
              :ok <- ensure_data_size(updated_data, state.opts) do
           touched = maybe_touch(state.touched, data_path, meta)
           submitted = maybe_submit(state.submitted, meta)
           raw_inputs = Map.delete(state.raw_inputs, data_path)
+          raw_inputs = Enum.reduce(cleared_paths, raw_inputs, &Map.delete(&2, &1))
 
           state =
             %State{
@@ -117,7 +124,8 @@ defmodule JsonFormsLV.Engine do
                 raw_inputs: raw_inputs
             }
 
-          state = validate_state(state, [data_path], validate?)
+          paths = Enum.uniq([data_path | cleared_paths])
+          state = validate_state(state, paths, validate?)
 
           emit_telemetry(:update_data, started_at, %{path: data_path, result: :ok})
 
@@ -126,10 +134,12 @@ defmodule JsonFormsLV.Engine do
 
       {:error, raw_value} ->
         with {:ok, updated_data} <- put_invalid_value(state.data, data_path, schema),
+             {updated_data, cleared_paths} <- clear_dependents(updated_data, dependents),
              :ok <- ensure_data_size(updated_data, state.opts) do
           touched = maybe_touch(state.touched, data_path, meta)
           submitted = maybe_submit(state.submitted, meta)
           raw_inputs = Map.put(state.raw_inputs, data_path, raw_value)
+          raw_inputs = Enum.reduce(cleared_paths, raw_inputs, &Map.delete(&2, &1))
 
           state =
             %State{
@@ -140,7 +150,8 @@ defmodule JsonFormsLV.Engine do
                 raw_inputs: raw_inputs
             }
 
-          state = validate_state(state, [data_path], validate?)
+          paths = Enum.uniq([data_path | cleared_paths])
+          state = validate_state(state, paths, validate?)
 
           emit_telemetry(:update_data, started_at, %{path: data_path, result: :ok})
 
@@ -340,6 +351,57 @@ defmodule JsonFormsLV.Engine do
   end
 
   @doc """
+  Add a renderer entry to the state registry.
+  """
+  @spec add_renderer(State.t(), :control | :layout | :cell, Registry.entry()) ::
+          {:ok, State.t()} | {:error, term()}
+  def add_renderer(%State{} = state, kind, entry) when kind in [:control, :layout, :cell] do
+    registry = state.registry || Registry.new()
+
+    registry =
+      case kind do
+        :control -> Registry.register_control(registry, entry)
+        :layout -> Registry.register_layout(registry, entry)
+        :cell -> Registry.register_cell(registry, entry)
+      end
+
+    {:ok, %State{state | registry: registry}}
+  end
+
+  def add_renderer(_state, kind, _entry), do: {:error, {:invalid_renderer_kind, kind}}
+
+  @doc """
+  Remove a renderer module from the state registry.
+  """
+  @spec remove_renderer(State.t(), :control | :layout | :cell, module()) ::
+          {:ok, State.t()} | {:error, term()}
+  def remove_renderer(%State{} = state, kind, module)
+      when kind in [:control, :layout, :cell] and is_atom(module) do
+    registry = state.registry || Registry.new()
+
+    registry =
+      case kind do
+        :control -> Registry.remove_control(registry, module)
+        :layout -> Registry.remove_layout(registry, module)
+        :cell -> Registry.remove_cell(registry, module)
+      end
+
+    {:ok, %State{state | registry: registry}}
+  end
+
+  def remove_renderer(_state, kind, _module), do: {:error, {:invalid_renderer_kind, kind}}
+
+  @doc """
+  Replace the state registry.
+  """
+  @spec set_registry(State.t(), Registry.t()) :: {:ok, State.t()} | {:error, term()}
+  def set_registry(%State{} = state, %Registry{} = registry) do
+    {:ok, %State{state | registry: registry}}
+  end
+
+  def set_registry(_state, registry), do: {:error, {:invalid_registry, registry}}
+
+  @doc """
   Update core schema/uischema/options and revalidate.
   """
   @spec update_core(State.t(), map()) :: {:ok, State.t()} | {:error, term()}
@@ -383,7 +445,8 @@ defmodule JsonFormsLV.Engine do
       end
 
     with {:ok, resolved_schema} <- resolver.resolve(schema, opts),
-         {:ok, resolved_schema} <- DynamicEnums.resolve(resolved_schema, opts),
+         {:ok, resolved_schema, enum_status} <-
+           DynamicEnums.resolve_with_status(resolved_schema, opts),
          {:ok, compiled} <-
            maybe_compile(needs_compile?, resolved_schema, validator, validator_opts, state) do
       state = %State{
@@ -394,7 +457,8 @@ defmodule JsonFormsLV.Engine do
           validator: %{module: validator, compiled: compiled},
           validator_opts: validator_opts,
           rule_schema_cache: rule_schema_cache,
-          rule_index: rule_index
+          rule_index: rule_index,
+          dynamic_enums_status: enum_status
       }
 
       {:ok, validate_state(state, :all, true)}
@@ -402,6 +466,45 @@ defmodule JsonFormsLV.Engine do
   end
 
   def update_core(_state, updates), do: {:error, {:invalid_updates, updates}}
+
+  @doc """
+  Refresh dynamic enums and revalidate.
+  """
+  @spec refresh_enums(State.t(), map() | keyword()) :: {:ok, State.t()} | {:error, term()}
+  def refresh_enums(%State{} = state, opts \\ %{}) do
+    opts = normalize_opts(opts)
+
+    opts =
+      if map_size(opts) > 0 do
+        state.opts |> Map.merge(opts) |> Limits.with_defaults()
+      else
+        state.opts
+      end
+
+    validator = state.validator.module
+    validator_opts = state.validator_opts
+
+    with {:ok, resolved_schema, enum_status} <-
+           DynamicEnums.resolve_with_status(state.schema, opts),
+         {:ok, compiled} <-
+           maybe_compile(
+             resolved_schema != state.schema,
+             resolved_schema,
+             validator,
+             validator_opts,
+             state
+           ) do
+      state = %State{
+        state
+        | schema: resolved_schema,
+          opts: opts,
+          validator: %{module: validator, compiled: compiled},
+          dynamic_enums_status: enum_status
+      }
+
+      {:ok, validate_state(state, :all, true)}
+    end
+  end
 
   @doc """
   Dispatch a reducer-style action.
@@ -422,6 +525,11 @@ defmodule JsonFormsLV.Engine do
       {:set_locale, locale} -> set_locale(state, locale)
       {:set_translator, translate} -> set_translator(state, translate)
       :validate -> validate(state)
+      :refresh_enums -> refresh_enums(state)
+      {:refresh_enums, opts} -> refresh_enums(state, opts)
+      {:add_renderer, kind, entry} -> add_renderer(state, kind, entry)
+      {:remove_renderer, kind, module} -> remove_renderer(state, kind, module)
+      {:set_registry, registry} -> set_registry(state, registry)
       {:update_core, updates} -> update_core(state, updates)
       _ -> {:error, {:unsupported_action, action}}
     end
@@ -479,6 +587,35 @@ defmodule JsonFormsLV.Engine do
   end
 
   defp normalize_combinator_index(_value), do: nil
+
+  defp dependent_paths(schema) when is_map(schema) do
+    case Map.get(schema, "x-dependents") || Map.get(schema, "x_dependents") do
+      list when is_list(list) ->
+        list
+        |> Enum.map(&to_string/1)
+        |> Enum.reject(&(&1 == ""))
+
+      value when is_binary(value) ->
+        [value]
+
+      _ ->
+        []
+    end
+  end
+
+  defp dependent_paths(_schema), do: []
+
+  defp clear_dependents(data, []), do: {data, []}
+
+  defp clear_dependents(data, dependents) when is_list(dependents) do
+    Enum.reduce(dependents, {data, []}, fn path, {data, cleared} ->
+      case Data.delete(data, path) do
+        {:ok, updated} -> {updated, [path | cleared]}
+        {:error, _} -> {data, cleared}
+      end
+    end)
+    |> then(fn {data, cleared} -> {data, Enum.reverse(cleared)} end)
+  end
 
   defp put_coerced_value(data, path, value, schema, raw_value) do
     if value == nil and raw_value in ["", nil] and not nullable_schema?(schema) do
