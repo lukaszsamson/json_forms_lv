@@ -228,6 +228,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               Arrays
             </button>
             <button
+              id="scenario-arrays-registered"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="arrays-registered"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "arrays-registered" && "bg-zinc-900 text-white",
+                @scenario != "arrays-registered" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Arrays registered
+            </button>
+            <button
               id="scenario-i18n"
               type="button"
               phx-click="select_scenario"
@@ -584,6 +597,23 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp arrays_registered_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/tasks",
+          "options" => %{
+            "detail" => "REGISTERED",
+            "detailKey" => "task_detail",
+            "elementLabelProp" => "title"
+          }
+        }
+      ]
+    }
+  end
+
   defp readonly_schema do
     %{
       "type" => "object",
@@ -670,6 +700,29 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       json_forms_opts: %{
         stream_arrays: true,
         stream_names: %{"tasks" => :tasks}
+      }
+    })
+  end
+
+  defp scenario_config("arrays-registered") do
+    base_config(%{
+      schema: arrays_schema(),
+      uischema: arrays_registered_uischema(),
+      data: %{
+        "tasks" => [
+          %{"title" => "Plan", "done" => false},
+          %{"title" => "Build", "done" => true}
+        ]
+      },
+      json_forms_opts: %{
+        detail_registry: %{
+          "task_detail" => %{
+            "type" => "VerticalLayout",
+            "elements" => [
+              %{"type" => "Control", "scope" => "#/properties/title"}
+            ]
+          }
+        }
       }
     })
   end
@@ -827,7 +880,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
 
   defp stream_dom_id(path, item_id) do
     base = if path == "", do: "root", else: path
-    "jf-stream-#{sanitize_id(base)}-#{sanitize_id(item_id)}"
+    "demo-json-forms-Control-#{sanitize_id(base)}-item-#{sanitize_id(item_id)}"
   end
 
   defp sanitize_id(value) do

@@ -189,6 +189,16 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     refute has_element?(view, "#debug-data", "\"title\": \"Plan\"")
   end
 
+  test "arrays registered detail uses detail registry", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "arrays-registered"})
+
+    assert has_element?(view, "#demo-scenario", "arrays-registered")
+    assert has_element?(view, "input[name='tasks.0.title']")
+    refute has_element?(view, "input[name='tasks.0.done']")
+  end
+
   test "streaming arrays keep stable dom ids", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 

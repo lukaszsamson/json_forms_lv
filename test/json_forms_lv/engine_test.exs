@@ -36,6 +36,97 @@ defmodule JsonFormsLV.EngineTest do
     assert MapSet.member?(state.touched, "name")
   end
 
+  test "add_item appends to array and creates id" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "items" => %{"type" => "array", "items" => %{"type" => "string"}}
+      }
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, %{"items" => []}, %{})
+
+    {:ok, state} = Engine.add_item(state, "items", %{})
+
+    assert state.data == %{"items" => [""]}
+    assert length(state.array_ids["items"]) == 1
+  end
+
+  test "remove_item removes by index" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "items" => %{"type" => "array", "items" => %{"type" => "string"}}
+      }
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, %{"items" => ["a", "b"]}, %{})
+
+    {:ok, state} = Engine.remove_item(state, "items", "0")
+
+    assert state.data == %{"items" => ["b"]}
+    assert length(state.array_ids["items"]) == 1
+  end
+
+  test "remove_item removes by stable id" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "items" => %{
+          "type" => "array",
+          "items" => %{
+            "type" => "object",
+            "properties" => %{"id" => %{"type" => "string"}}
+          }
+        }
+      }
+    }
+
+    data = %{
+      "items" => [
+        %{"id" => "alpha"},
+        %{"id" => "beta"}
+      ]
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, data, %{})
+
+    {:ok, state} = Engine.remove_item(state, "items", "beta")
+
+    assert state.data == %{"items" => [%{"id" => "alpha"}]}
+    assert state.array_ids["items"] == ["alpha"]
+  end
+
+  test "move_item reorders items and ids" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "items" => %{
+          "type" => "array",
+          "items" => %{
+            "type" => "object",
+            "properties" => %{"id" => %{"type" => "string"}}
+          }
+        }
+      }
+    }
+
+    data = %{
+      "items" => [
+        %{"id" => "first"},
+        %{"id" => "second"},
+        %{"id" => "third"}
+      ]
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, data, %{})
+
+    {:ok, state} = Engine.move_item(state, "items", 0, 2)
+
+    assert state.array_ids["items"] == ["second", "third", "first"]
+    assert Enum.map(state.data["items"], & &1["id"]) == ["second", "third", "first"]
+  end
+
   test "invalid numeric coercion preserves raw input" do
     schema = %{
       "type" => "object",

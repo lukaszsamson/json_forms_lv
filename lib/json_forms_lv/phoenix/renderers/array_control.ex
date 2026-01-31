@@ -449,6 +449,15 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
 
   defp detail_property_paths(assigns, schema) do
     case Map.get(assigns.options || %{}, "detail") do
+      "DEFAULT" ->
+        default_property_paths(schema)
+
+      "GENERATED" ->
+        generated_property_paths(schema)
+
+      "REGISTERED" ->
+        registered_property_paths(assigns, schema)
+
       %{"elements" => elements} when is_list(elements) ->
         elements
         |> Enum.flat_map(&detail_control_path/1)
@@ -475,5 +484,40 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
     |> Map.get("properties", %{})
     |> Map.keys()
     |> Enum.sort()
+  end
+
+  defp generated_property_paths(schema), do: default_property_paths(schema)
+
+  defp registered_property_paths(assigns, schema) do
+    key =
+      Map.get(assigns.options || %{}, "detailKey") ||
+        Map.get(assigns.options || %{}, "detailId")
+
+    registry = detail_registry(assigns)
+
+    cond do
+      is_binary(key) and is_map(registry) ->
+        case Map.get(registry, key) do
+          %{"elements" => elements} when is_list(elements) ->
+            elements
+            |> Enum.flat_map(&detail_control_path/1)
+            |> Enum.uniq()
+            |> case do
+              [] -> default_property_paths(schema)
+              paths -> paths
+            end
+
+          _ ->
+            default_property_paths(schema)
+        end
+
+      true ->
+        default_property_paths(schema)
+    end
+  end
+
+  defp detail_registry(assigns) do
+    config = assigns.config || %{}
+    Map.get(config, :detail_registry) || Map.get(config, "detail_registry") || %{}
   end
 end

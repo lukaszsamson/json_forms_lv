@@ -357,10 +357,10 @@ defmodule JsonFormsLV.Engine do
   end
 
   defp item_schema(%{"items" => items}, index) when is_list(items) and is_integer(index) do
-    cond do
-      index >= 0 and index < length(items) -> Enum.at(items, index)
-      is_map(items) -> items
-      true -> nil
+    if index >= 0 and index < length(items) do
+      Enum.at(items, index)
+    else
+      nil
     end
   end
 
