@@ -160,7 +160,10 @@ defmodule JsonFormsLV.Phoenix.Components do
 
   defp default_registry do
     Registry.new(
-      control_renderers: [JsonFormsLV.Phoenix.Renderers.Control],
+      control_renderers: [
+        JsonFormsLV.Phoenix.Renderers.ArrayControl,
+        JsonFormsLV.Phoenix.Renderers.Control
+      ],
       layout_renderers: [
         JsonFormsLV.Phoenix.Renderers.Label,
         JsonFormsLV.Phoenix.Renderers.Group,

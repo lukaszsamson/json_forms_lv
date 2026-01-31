@@ -105,6 +105,27 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     {:noreply, assign(socket, :readonly, not socket.assigns.readonly)}
   end
 
+  def handle_event("jf:add_item", %{"path" => path}, socket) do
+    case Engine.add_item(socket.assigns.state, path, %{}) do
+      {:ok, state} -> {:noreply, assign(socket, state: state, data: state.data)}
+      {:error, _reason} -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("jf:remove_item", %{"path" => path, "index" => index}, socket) do
+    case Engine.remove_item(socket.assigns.state, path, index) do
+      {:ok, state} -> {:noreply, assign(socket, state: state, data: state.data)}
+      {:error, _reason} -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("jf:move_item", %{"path" => path, "from" => from, "to" => to}, socket) do
+    case Engine.move_item(socket.assigns.state, path, from, to) do
+      {:ok, state} -> {:noreply, assign(socket, state: state, data: state.data)}
+      {:error, _reason} -> {:noreply, socket}
+    end
+  end
+
   def handle_event("set_validation_mode", %{"mode" => mode}, socket) do
     validation_mode =
       case String.trim(mode) do
@@ -174,6 +195,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               ]}
             >
               Formats
+            </button>
+            <button
+              id="scenario-arrays"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="arrays"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "arrays" && "bg-zinc-900 text-white",
+                @scenario != "arrays" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Arrays
             </button>
             <button
               id="scenario-i18n"
@@ -468,6 +502,26 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp arrays_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "tasks" => %{
+          "type" => "array",
+          "title" => "Tasks",
+          "items" => %{
+            "type" => "object",
+            "default" => %{"title" => "", "done" => false},
+            "properties" => %{
+              "title" => %{"type" => "string", "title" => "Title"},
+              "done" => %{"type" => "boolean", "title" => "Done"}
+            }
+          }
+        }
+      }
+    }
+  end
+
   defp formats_uischema do
     %{
       "type" => "Group",
@@ -492,6 +546,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           "type" => "Control",
           "scope" => "#/properties/notes",
           "options" => %{"multi" => true}
+        }
+      ]
+    }
+  end
+
+  defp arrays_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/tasks",
+          "options" => %{"showSortButtons" => true, "elementLabelProp" => "title"}
         }
       ]
     }
@@ -566,6 +633,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         "start_date" => "2025-01-30",
         "meeting" => "2025-01-30T10:00",
         "notes" => ""
+      }
+    })
+  end
+
+  defp scenario_config("arrays") do
+    base_config(%{
+      schema: arrays_schema(),
+      uischema: arrays_uischema(),
+      data: %{
+        "tasks" => [
+          %{"title" => "Plan", "done" => false},
+          %{"title" => "Build", "done" => true}
+        ]
       }
     })
   end

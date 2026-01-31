@@ -10,6 +10,7 @@ defmodule JsonFormsLV.Coercion do
       "boolean" -> {:ok, coerce_boolean(value)}
       "integer" -> coerce_integer_with_raw(value)
       "number" -> coerce_number_with_raw(value)
+      "array" -> coerce_array_with_raw(value, schema, opts)
       "string" -> {:ok, coerce_string(value)}
       types when is_list(types) -> coerce_union_with_raw(value, types, opts)
       _ -> {:ok, value}
@@ -59,6 +60,21 @@ defmodule JsonFormsLV.Coercion do
   end
 
   defp coerce_number_with_raw(value), do: {:ok, value}
+
+  defp coerce_array_with_raw(value, schema, opts) when is_list(value) do
+    items_schema = Map.get(schema || %{}, "items")
+
+    coerced =
+      Enum.map(value, fn entry ->
+        coerce(entry, items_schema, opts)
+      end)
+
+    {:ok, coerced}
+  end
+
+  defp coerce_array_with_raw("", _schema, _opts), do: {:ok, []}
+  defp coerce_array_with_raw(nil, _schema, _opts), do: {:ok, nil}
+  defp coerce_array_with_raw(value, _schema, _opts), do: {:ok, value}
 
   defp coerce_union_with_raw(value, types, opts) do
     empty_string_as_null? = empty_string_as_null?(opts)

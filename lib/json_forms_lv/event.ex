@@ -61,7 +61,10 @@ defmodule JsonFormsLV.Event do
     normalize_value(value)
   end
 
-  defp normalize_value(value) when is_list(value), do: List.last(value)
+  defp normalize_value(["false", "true"]), do: "true"
+  defp normalize_value(["false"]), do: "false"
+  defp normalize_value(["true"]), do: "true"
+  defp normalize_value(value) when is_list(value), do: value
   defp normalize_value(value), do: value
 
   defp normalize_event_params(%{"value" => value} = params) when is_map(value) do

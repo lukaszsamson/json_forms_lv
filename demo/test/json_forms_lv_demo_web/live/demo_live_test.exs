@@ -170,6 +170,23 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "input[name='name'][disabled]")
   end
 
+  test "arrays scenario supports add and remove", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "arrays"})
+
+    assert has_element?(view, "#demo-scenario", "arrays")
+    assert has_element?(view, "#debug-data", "\"title\": \"Plan\"")
+
+    render_click(view, "jf:add_item", %{"path" => "tasks"})
+
+    assert has_element?(view, "#debug-data", "\"title\": \"\"")
+
+    render_click(view, "jf:remove_item", %{"path" => "tasks", "index" => "0"})
+
+    refute has_element?(view, "#debug-data", "\"title\": \"Plan\"")
+  end
+
   test "validation scenario toggles modes", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 

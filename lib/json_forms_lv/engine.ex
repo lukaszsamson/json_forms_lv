@@ -3,7 +3,7 @@ defmodule JsonFormsLV.Engine do
   Pure core engine functions.
   """
 
-  alias JsonFormsLV.{Coercion, Data, Errors, Limits, Rules, Schema, State}
+  alias JsonFormsLV.{Coercion, Data, Errors, Limits, Path, Rules, Schema, State}
 
   @spec init(map(), map(), term(), map() | keyword()) :: {:ok, State.t()} | {:error, term()}
   def init(schema, uischema, data, opts) do
@@ -37,6 +37,7 @@ defmodule JsonFormsLV.Engine do
             validator_opts: validator_opts
           }
 
+          state = init_array_ids(state)
           {:ok, validate_state(state)}
         end
     end
@@ -99,6 +100,70 @@ defmodule JsonFormsLV.Engine do
   def touch(%State{} = state, data_path) when is_binary(data_path) do
     touched = MapSet.put(state.touched, data_path)
     {:ok, validate_state(%State{state | touched: touched})}
+  end
+
+  @spec add_item(State.t(), String.t(), map() | keyword()) :: {:ok, State.t()} | {:error, term()}
+  def add_item(%State{} = state, data_path, opts \\ %{}) do
+    opts = normalize_opts(opts)
+
+    with {:ok, array} <- get_array(state.data, data_path),
+         {:ok, schema} <- Schema.resolve_at_data_path(state.schema, data_path) do
+      index = normalize_index(Map.get(opts, :index) || Map.get(opts, "index"), length(array))
+      item_schema = item_schema(schema, index)
+      item = Map.get(opts, :item) || Map.get(opts, "item") || default_item(item_schema)
+
+      new_array = List.insert_at(array, index, item)
+
+      with {:ok, updated_data} <- Data.put(state.data, data_path, new_array) do
+        ids = array_ids_for(state, data_path, array)
+        new_id = ensure_item_id(item, ids, state.opts)
+        new_ids = List.insert_at(ids, index, new_id)
+        array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
+
+        state = %State{state | data: updated_data, array_ids: array_ids}
+        {:ok, validate_state(state)}
+      end
+    end
+  end
+
+  @spec remove_item(State.t(), String.t(), term()) :: {:ok, State.t()} | {:error, term()}
+  def remove_item(%State{} = state, data_path, index_or_id) do
+    with {:ok, array} <- get_array(state.data, data_path),
+         {:ok, index} <- resolve_index(state, data_path, array, index_or_id) do
+      new_array = List.delete_at(array, index)
+
+      with {:ok, updated_data} <- Data.put(state.data, data_path, new_array) do
+        ids = array_ids_for(state, data_path, array)
+        new_ids = List.delete_at(ids, index)
+        array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
+        state = %State{state | data: updated_data, array_ids: array_ids}
+        state = prune_array_state(state, data_path)
+        {:ok, validate_state(state)}
+      end
+    end
+  end
+
+  @spec move_item(State.t(), String.t(), term(), term()) :: {:ok, State.t()} | {:error, term()}
+  def move_item(%State{} = state, data_path, from, to) do
+    with {:ok, array} <- get_array(state.data, data_path),
+         {:ok, from_index} <- normalize_index(from),
+         {:ok, to_index} <- normalize_index(to),
+         true <- from_index >= 0 and from_index < length(array),
+         true <- to_index >= 0 and to_index < length(array) do
+      new_array = move_list_item(array, from_index, to_index)
+
+      with {:ok, updated_data} <- Data.put(state.data, data_path, new_array) do
+        ids = array_ids_for(state, data_path, array)
+        new_ids = move_list_item(ids, from_index, to_index)
+        array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
+        state = %State{state | data: updated_data, array_ids: array_ids}
+        state = prune_array_state(state, data_path)
+        {:ok, validate_state(state)}
+      end
+    else
+      false -> {:error, {:invalid_index, data_path}}
+      {:error, _} = error -> error
+    end
   end
 
   @spec set_additional_errors(State.t(), [map()]) :: {:ok, State.t()}
@@ -175,6 +240,9 @@ defmodule JsonFormsLV.Engine do
       {:update_data, path, raw_value, meta} -> update_data(state, path, raw_value, meta)
       {:touch, path} -> touch(state, path)
       :touch_all -> touch_all(state)
+      {:add_item, path, opts} -> add_item(state, path, opts)
+      {:remove_item, path, index_or_id} -> remove_item(state, path, index_or_id)
+      {:move_item, path, from, to} -> move_item(state, path, from, to)
       {:set_additional_errors, errors} -> set_additional_errors(state, errors)
       {:set_validation_mode, mode} -> set_validation_mode(state, mode)
       {:set_readonly, readonly} -> set_readonly(state, readonly)
@@ -238,6 +306,218 @@ defmodule JsonFormsLV.Engine do
 
   defp maybe_compile(true, schema, validator, validator_opts, _state),
     do: validator.compile(schema, validator_opts)
+
+  defp get_array(data, path) do
+    case Data.get(data, path) do
+      {:ok, nil} -> {:ok, []}
+      {:ok, array} when is_list(array) -> {:ok, array}
+      {:ok, _value} -> {:error, {:invalid_path, path}}
+      {:error, _} -> {:ok, []}
+    end
+  end
+
+  defp normalize_index(nil, default), do: default
+
+  defp normalize_index(value, default) do
+    case normalize_index(value) do
+      {:ok, index} -> index
+      {:error, _} -> default
+    end
+  end
+
+  defp normalize_index(value) when is_integer(value), do: {:ok, value}
+
+  defp normalize_index(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {index, ""} -> {:ok, index}
+      _ -> {:error, :invalid_index}
+    end
+  end
+
+  defp normalize_index(_value), do: {:error, :invalid_index}
+
+  defp resolve_index(state, path, array, index_or_id) do
+    case normalize_index(index_or_id) do
+      {:ok, index} ->
+        if index >= 0 and index < length(array) do
+          {:ok, index}
+        else
+          {:error, {:invalid_index, path}}
+        end
+
+      {:error, _} ->
+        ids = array_ids_for(state, path, array)
+        id = to_string(index_or_id)
+
+        case Enum.find_index(ids, &(&1 == id)) do
+          nil -> {:error, {:invalid_index, path}}
+          index -> {:ok, index}
+        end
+    end
+  end
+
+  defp item_schema(%{"items" => items}, index) when is_list(items) and is_integer(index) do
+    cond do
+      index >= 0 and index < length(items) -> Enum.at(items, index)
+      is_map(items) -> items
+      true -> nil
+    end
+  end
+
+  defp item_schema(%{"items" => items}, _index) when is_map(items), do: items
+  defp item_schema(_schema, _index), do: nil
+
+  defp default_item(%{"default" => default}) when not is_nil(default), do: default
+  defp default_item(%{"type" => "object"}), do: %{}
+
+  defp default_item(%{"type" => types}) when is_list(types),
+    do: default_item(type_from_union(types))
+
+  defp default_item(%{"type" => "string"}), do: ""
+  defp default_item(_schema), do: nil
+
+  defp type_from_union(types) do
+    if "null" in types do
+      %{"type" => Enum.find(types, &(&1 != "null"))}
+    else
+      %{"type" => List.first(types)}
+    end
+  end
+
+  defp array_ids_for(state, path, array) do
+    ids = Map.get(state.array_ids || %{}, path, [])
+
+    if length(ids) == length(array) do
+      ids
+    else
+      derive_array_ids(array, state.opts)
+    end
+  end
+
+  defp derive_array_ids(array, opts) do
+    id_field = Map.get(opts || %{}, :array_id_field, "id")
+
+    {ids, _} =
+      Enum.reduce(array, {[], MapSet.new()}, fn item, {acc, seen} ->
+        id = item_id(item, id_field)
+
+        id =
+          cond do
+            is_binary(id) and not MapSet.member?(seen, id) -> id
+            true -> generate_id(seen)
+          end
+
+        {[id | acc], MapSet.put(seen, id)}
+      end)
+
+    Enum.reverse(ids)
+  end
+
+  defp ensure_item_id(item, existing_ids, opts) do
+    id_field = Map.get(opts || %{}, :array_id_field, "id")
+    id = item_id(item, id_field)
+
+    cond do
+      is_binary(id) and id not in existing_ids -> id
+      true -> generate_id(MapSet.new(existing_ids))
+    end
+  end
+
+  defp item_id(item, id_field) when is_map(item) do
+    case Map.get(item, id_field) do
+      nil -> nil
+      value -> to_string(value)
+    end
+  end
+
+  defp item_id(_item, _id_field), do: nil
+
+  defp generate_id(seen) do
+    id = :crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)
+
+    if MapSet.member?(seen, id) do
+      generate_id(seen)
+    else
+      id
+    end
+  end
+
+  defp move_list_item(list, from, to) when from == to, do: list
+
+  defp move_list_item(list, from, to) do
+    {item, list} = List.pop_at(list, from)
+    List.insert_at(list, to, item)
+  end
+
+  defp prune_array_state(%State{} = state, path) do
+    prefix = if path == "", do: "", else: path <> "."
+
+    touched =
+      state.touched
+      |> Enum.reject(&(&1 == path or String.starts_with?(&1, prefix)))
+      |> MapSet.new()
+
+    raw_inputs =
+      state.raw_inputs
+      |> Enum.reject(fn {key, _val} -> key == path or String.starts_with?(key, prefix) end)
+      |> Map.new()
+
+    %State{state | touched: touched, raw_inputs: raw_inputs}
+  end
+
+  defp init_array_ids(%State{} = state) do
+    array_ids =
+      collect_array_ids(state.schema, state.data, state.opts, "", state.array_ids || %{})
+
+    %State{state | array_ids: array_ids}
+  end
+
+  defp collect_array_ids(schema, data, opts, path, acc) when is_map(schema) and is_list(data) do
+    if array_schema?(schema) do
+      existing_ids = Map.get(acc, path)
+
+      ids =
+        if is_list(existing_ids) and length(existing_ids) == length(data) do
+          existing_ids
+        else
+          derive_array_ids(data, opts)
+        end
+
+      acc = Map.put(acc, path, ids)
+
+      Enum.reduce(Enum.with_index(data), acc, fn {item, index}, acc ->
+        item_schema = item_schema(schema, index)
+        item_path = Path.join(path, Integer.to_string(index))
+        collect_array_ids(item_schema || %{}, item, opts, item_path, acc)
+      end)
+    else
+      acc
+    end
+  end
+
+  defp collect_array_ids(schema, data, opts, path, acc) when is_map(schema) and is_map(data) do
+    if object_schema?(schema) do
+      props = Map.get(schema, "properties", %{})
+
+      Enum.reduce(props, acc, fn {key, prop_schema}, acc ->
+        value = Map.get(data, key)
+        prop_path = Path.join(path, key)
+        collect_array_ids(prop_schema || %{}, value, opts, prop_path, acc)
+      end)
+    else
+      acc
+    end
+  end
+
+  defp collect_array_ids(_schema, _data, _opts, _path, acc), do: acc
+
+  defp array_schema?(%{"type" => "array"}), do: true
+  defp array_schema?(%{"items" => items}) when is_map(items) or is_list(items), do: true
+  defp array_schema?(_schema), do: false
+
+  defp object_schema?(%{"type" => "object"}), do: true
+  defp object_schema?(%{"properties" => props}) when is_map(props), do: true
+  defp object_schema?(_schema), do: false
 
   defp validate_state(%State{} = state) do
     rule_state = Rules.evaluate(state.uischema, state.data, state.validator, state.validator_opts)
