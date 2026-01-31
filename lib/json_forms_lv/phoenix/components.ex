@@ -34,6 +34,7 @@ defmodule JsonFormsLV.Phoenix.Components do
   Render a JSON Forms UI from schema, uischema, and data.
 
   Use `state={@state}` to pass a precomputed `JsonFormsLV.State` from your LiveView.
+  When `state` is present, it is the source of truth (other props are not merged into it).
   When `state` is omitted, this component renders without calling `Engine.init/4`.
   For a self-contained integration, use `JsonFormsLV.Phoenix.LiveComponent`.
 
@@ -265,7 +266,7 @@ defmodule JsonFormsLV.Phoenix.Components do
 
     element_count =
       if assigns.depth == 0 and is_integer(max_elements) and max_elements > 0 do
-        count_elements(assigns.uischema)
+        count_elements(assigns.uischema, max_elements + 1)
       end
 
     if assigns.depth > max_depth do
@@ -281,7 +282,7 @@ defmodule JsonFormsLV.Phoenix.Components do
         renderer_assigns =
           assign(assigns,
             id: id,
-            message: "Max render elements exceeded (#{element_count}/#{max_elements})"
+            message: "Max render elements exceeded (>#{max_elements})"
           )
 
         %{renderer: renderer, renderer_assigns: renderer_assigns}
@@ -412,11 +413,27 @@ defmodule JsonFormsLV.Phoenix.Components do
     |> String.replace(~r/[^A-Za-z0-9_-]/, "-")
   end
 
-  defp count_elements(%{"elements" => elements}) when is_list(elements) do
-    Enum.reduce(elements, 1, fn element, acc ->
-      acc + count_elements(element)
+  defp count_elements(uischema, max) when is_integer(max) and max > 0 do
+    count_elements(uischema, max, 0)
+  end
+
+  defp count_elements(_uischema, _max), do: 1
+
+  defp count_elements(_uischema, max, count) when count >= max, do: count
+
+  defp count_elements(%{"elements" => elements}, max, count) when is_list(elements) do
+    count = count + 1
+
+    Enum.reduce_while(elements, count, fn element, acc ->
+      acc = count_elements(element, max, acc)
+
+      if acc >= max do
+        {:halt, acc}
+      else
+        {:cont, acc}
+      end
     end)
   end
 
-  defp count_elements(_uischema), do: 1
+  defp count_elements(_uischema, _max, count), do: count + 1
 end

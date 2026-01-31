@@ -370,9 +370,13 @@ defmodule JsonFormsLV.Engine do
 
   defp put_coerced_value(data, path, value, schema, raw_value) do
     if value == nil and raw_value in ["", nil] and not nullable_schema?(schema) do
-      case Data.delete(data, path) do
-        {:ok, updated} -> {:ok, updated}
-        {:error, _} -> Data.put(data, path, nil)
+      if path == "" do
+        {:ok, nil}
+      else
+        case Data.delete(data, path) do
+          {:ok, updated} -> {:ok, updated}
+          {:error, _} -> Data.put(data, path, nil)
+        end
       end
     else
       Data.put(data, path, value)

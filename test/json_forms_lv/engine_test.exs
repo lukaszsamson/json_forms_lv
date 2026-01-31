@@ -319,4 +319,14 @@ defmodule JsonFormsLV.EngineTest do
 
     assert state.data == %{}
   end
+
+  test "empty root input clears scalar value" do
+    schema = %{"type" => "number"}
+
+    {:ok, state} = Engine.init(schema, %{"type" => "Control", "scope" => ""}, 5, %{})
+
+    {:ok, state} = Engine.update_data(state, "", "", %{})
+
+    assert state.data == nil
+  end
 end

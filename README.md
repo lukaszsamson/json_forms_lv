@@ -68,6 +68,10 @@ When `state` is omitted, the function component renders without running `Engine.
 (no validation, defaults, or rule evaluation). Prefer passing a precomputed state or use
 the LiveComponent for self-contained mode.
 
+When `state` is provided, the function component treats it as the source of truth.
+Props like `validation_mode` or `additional_errors` are ignored unless they are already
+reflected in the `state`.
+
 For a self-contained integration, use the LiveComponent:
 
 ```elixir
@@ -124,6 +128,11 @@ Control when validation runs by setting `opts[:validate_on]` (default: `:change`
 ### Defaults
 
 Enable `opts[:apply_defaults]` to apply JSON Schema defaults when initializing data.
+
+### Data size limits
+
+`opts[:max_data_bytes]` defaults to 1,000,000 bytes. For large payloads or to avoid
+size checks on every change, set it to `:infinity`.
 
 ### Path format
 
