@@ -221,6 +221,75 @@ defmodule JsonFormsLV.EngineTest do
     assert Enum.map(state.data["items"], & &1["id"]) == ["second", "third", "first"]
   end
 
+  test "move_item remaps nested array ids" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "tasks" => %{
+          "type" => "array",
+          "items" => %{
+            "type" => "object",
+            "properties" => %{
+              "title" => %{"type" => "string"},
+              "subtasks" => %{"type" => "array", "items" => %{"type" => "string"}}
+            }
+          }
+        }
+      }
+    }
+
+    data = %{
+      "tasks" => [
+        %{"title" => "One", "subtasks" => ["a", "b"]},
+        %{"title" => "Two", "subtasks" => ["c"]}
+      ]
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, data, %{})
+
+    ids_0 = state.array_ids["tasks.0.subtasks"]
+    ids_1 = state.array_ids["tasks.1.subtasks"]
+
+    {:ok, state} = Engine.move_item(state, "tasks", 0, 1)
+
+    assert state.array_ids["tasks.0.subtasks"] == ids_1
+    assert state.array_ids["tasks.1.subtasks"] == ids_0
+  end
+
+  test "remove_item prunes nested array ids" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "tasks" => %{
+          "type" => "array",
+          "items" => %{
+            "type" => "object",
+            "properties" => %{
+              "title" => %{"type" => "string"},
+              "subtasks" => %{"type" => "array", "items" => %{"type" => "string"}}
+            }
+          }
+        }
+      }
+    }
+
+    data = %{
+      "tasks" => [
+        %{"title" => "One", "subtasks" => ["a", "b"]},
+        %{"title" => "Two", "subtasks" => ["c"]}
+      ]
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, data, %{})
+
+    ids_1 = state.array_ids["tasks.1.subtasks"]
+
+    {:ok, state} = Engine.remove_item(state, "tasks", 0)
+
+    assert state.array_ids["tasks.0.subtasks"] == ids_1
+    refute Map.has_key?(state.array_ids, "tasks.1.subtasks")
+  end
+
   test "invalid numeric coercion preserves raw input" do
     schema = %{
       "type" => "object",
@@ -231,7 +300,23 @@ defmodule JsonFormsLV.EngineTest do
 
     {:ok, state} = Engine.update_data(state, "age", "abc", %{})
 
-    assert state.data == %{"age" => 1}
+    assert state.data == %{"age" => nil}
     assert state.raw_inputs["age"] == "abc"
+    assert Enum.any?(state.errors, &(&1.keyword == "type"))
+  end
+
+  test "empty numeric input clears optional field" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "age" => %{"type" => "integer"}
+      }
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, %{"age" => 30}, %{})
+
+    {:ok, state} = Engine.update_data(state, "age", "", %{})
+
+    assert state.data == %{}
   end
 end

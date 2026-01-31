@@ -70,7 +70,8 @@ defmodule JsonFormsLV.Engine do
 
     case Coercion.coerce_with_raw(raw_value, schema, state.opts) do
       {:ok, coerced_value} ->
-        with {:ok, updated_data} <- Data.put(state.data, data_path, coerced_value),
+        with {:ok, updated_data} <-
+               put_coerced_value(state.data, data_path, coerced_value, schema, raw_value),
              :ok <- ensure_data_size(updated_data, state.opts) do
           touched = maybe_touch(state.touched, data_path, meta)
           submitted = maybe_submit(state.submitted, meta)
@@ -93,13 +94,7 @@ defmodule JsonFormsLV.Engine do
         end
 
       {:error, raw_value} ->
-        previous_value =
-          case Data.get(state.data, data_path) do
-            {:ok, value} -> value
-            {:error, _} -> nil
-          end
-
-        with {:ok, updated_data} <- Data.put(state.data, data_path, previous_value),
+        with {:ok, updated_data} <- put_invalid_value(state.data, data_path, schema),
              :ok <- ensure_data_size(updated_data, state.opts) do
           touched = maybe_touch(state.touched, data_path, meta)
           submitted = maybe_submit(state.submitted, meta)
@@ -156,6 +151,7 @@ defmodule JsonFormsLV.Engine do
         new_id = ensure_item_id(item, ids, state.opts)
         new_ids = List.insert_at(ids, index, new_id)
         array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
+        array_ids = remap_array_ids_on_insert(array_ids, data_path, index)
 
         state = %State{state | data: updated_data, array_ids: array_ids}
         {:ok, validate_state(state, [data_path], validate?)}
@@ -179,6 +175,7 @@ defmodule JsonFormsLV.Engine do
         ids = array_ids_for(state, data_path, array)
         new_ids = List.delete_at(ids, index)
         array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
+        array_ids = remap_array_ids_on_remove(array_ids, data_path, index)
         state = %State{state | data: updated_data, array_ids: array_ids}
         state = prune_array_state(state, data_path)
         {:ok, validate_state(state, [data_path], validate?)}
@@ -205,6 +202,7 @@ defmodule JsonFormsLV.Engine do
         ids = array_ids_for(state, data_path, array)
         new_ids = move_list_item(ids, from_index, to_index)
         array_ids = Map.put(state.array_ids || %{}, data_path, new_ids)
+        array_ids = remap_array_ids_on_move(array_ids, data_path, from_index, to_index)
         state = %State{state | data: updated_data, array_ids: array_ids}
         state = prune_array_state(state, data_path)
         {:ok, validate_state(state, [data_path], validate?)}
@@ -369,6 +367,29 @@ defmodule JsonFormsLV.Engine do
   end
 
   defp maybe_submit(submitted, _meta), do: submitted
+
+  defp put_coerced_value(data, path, value, schema, raw_value) do
+    if value == nil and raw_value in ["", nil] and not nullable_schema?(schema) do
+      case Data.delete(data, path) do
+        {:ok, updated} -> {:ok, updated}
+        {:error, _} -> Data.put(data, path, nil)
+      end
+    else
+      Data.put(data, path, value)
+    end
+  end
+
+  defp put_invalid_value(data, path, _schema) do
+    Data.put(data, path, nil)
+  end
+
+  defp nullable_schema?(%{"type" => "null"}), do: true
+
+  defp nullable_schema?(%{"type" => types}) when is_list(types) do
+    "null" in types
+  end
+
+  defp nullable_schema?(_schema), do: false
 
   defp should_validate?(%State{} = state, event, meta) when is_atom(event) do
     validate_on =
@@ -671,6 +692,97 @@ defmodule JsonFormsLV.Engine do
     %State{state | touched: touched, raw_inputs: raw_inputs}
   end
 
+  defp remap_array_ids_on_insert(array_ids, path, index) do
+    remap_array_ids(array_ids, path, fn entry_index ->
+      if entry_index >= index do
+        entry_index + 1
+      else
+        entry_index
+      end
+    end)
+  end
+
+  defp remap_array_ids_on_remove(array_ids, path, index) do
+    remap_array_ids(array_ids, path, fn entry_index ->
+      cond do
+        entry_index == index -> :drop
+        entry_index > index -> entry_index - 1
+        true -> entry_index
+      end
+    end)
+  end
+
+  defp remap_array_ids_on_move(array_ids, path, from_index, to_index) do
+    remap_array_ids(array_ids, path, fn entry_index ->
+      remap_index(entry_index, from_index, to_index)
+    end)
+  end
+
+  defp remap_array_ids(array_ids, path, remap_fun) when is_map(array_ids) do
+    prefix = if path == "", do: "", else: path <> "."
+
+    Enum.reduce(array_ids, %{}, fn {key, ids}, acc ->
+      cond do
+        key == path ->
+          Map.put(acc, key, ids)
+
+        String.starts_with?(key, prefix) ->
+          rest = String.replace_prefix(key, prefix, "")
+
+          case split_index_segment(rest) do
+            {:ok, index, tail} ->
+              case remap_fun.(index) do
+                :drop -> acc
+                new_index -> Map.put(acc, prefix <> Integer.to_string(new_index) <> tail, ids)
+              end
+
+            :error ->
+              Map.put(acc, key, ids)
+          end
+
+        true ->
+          Map.put(acc, key, ids)
+      end
+    end)
+  end
+
+  defp remap_array_ids(array_ids, _path, _remap_fun), do: array_ids
+
+  defp split_index_segment(""), do: :error
+
+  defp split_index_segment(rest) do
+    case String.split(rest, ".", parts: 2) do
+      [segment] -> parse_index_segment(segment, "")
+      [segment, tail] -> parse_index_segment(segment, "." <> tail)
+      _ -> :error
+    end
+  end
+
+  defp parse_index_segment(segment, tail) do
+    case Integer.parse(segment) do
+      {index, ""} -> {:ok, index, tail}
+      _ -> :error
+    end
+  end
+
+  defp remap_index(index, from, to) when from == to, do: index
+
+  defp remap_index(index, from, to) when from < to do
+    cond do
+      index == from -> to
+      index > from and index <= to -> index - 1
+      true -> index
+    end
+  end
+
+  defp remap_index(index, from, to) when from > to do
+    cond do
+      index == from -> to
+      index >= to and index < from -> index + 1
+      true -> index
+    end
+  end
+
   defp init_array_ids(%State{} = state) do
     array_ids =
       collect_array_ids(state.schema, state.data, state.opts, "", state.array_ids || %{})
@@ -773,7 +885,12 @@ defmodule JsonFormsLV.Engine do
   defp evaluate_rules(%State{} = state, changed_paths) do
     rule_schema_cache = state.rule_schema_cache || %{}
     rule_index_missing? = state.rule_index == nil
-    rule_index = state.rule_index || Rules.index(state.uischema)
+
+    max_elements =
+      Map.get(state.opts || %{}, :max_elements) || Map.get(state.opts || %{}, "max_elements") ||
+        Limits.defaults().max_elements
+
+    rule_index = state.rule_index || Rules.index(state.uischema, max_elements)
     rules_total = length(rule_index)
     changed_paths_count = if is_list(changed_paths), do: length(changed_paths), else: 0
 
@@ -785,7 +902,8 @@ defmodule JsonFormsLV.Engine do
             state.data,
             state.validator,
             state.validator_opts,
-            rule_schema_cache
+            rule_schema_cache,
+            max_elements
           )
 
         rule_stats = %{
@@ -804,7 +922,8 @@ defmodule JsonFormsLV.Engine do
             state.data,
             state.validator,
             state.validator_opts,
-            rule_schema_cache
+            rule_schema_cache,
+            max_elements
           )
 
         rule_stats = %{
@@ -856,7 +975,8 @@ defmodule JsonFormsLV.Engine do
             state.data,
             state.validator,
             state.validator_opts,
-            rule_schema_cache
+            rule_schema_cache,
+            max_elements
           )
 
         rule_stats = %{

@@ -32,6 +32,15 @@ defmodule JsonFormsLV.Data do
     end
   end
 
+  @spec delete(term(), String.t()) :: {:ok, term()} | {:error, term()}
+  def delete(_data, path) when not is_binary(path), do: {:error, {:invalid_path, path}}
+  def delete(data, ""), do: {:ok, data}
+
+  def delete(data, path) when is_binary(path) do
+    segments = Path.parse_data_path(path)
+    do_delete(data, segments, path)
+  end
+
   defp do_get(current, [], _path), do: {:ok, current}
 
   defp do_get(current, [segment | rest], path) when is_map(current) and is_binary(segment) do
@@ -108,6 +117,28 @@ defmodule JsonFormsLV.Data do
   end
 
   defp do_put(_current, _segments, _value, path), do: {:error, {:invalid_path, path}}
+
+  defp do_delete(current, [], _path), do: {:ok, current}
+
+  defp do_delete(current, [segment], _path) when is_map(current) and is_binary(segment) do
+    {:ok, Map.delete(current, segment)}
+  end
+
+  defp do_delete(current, [segment | rest], path)
+       when is_map(current) and is_binary(segment) do
+    case Map.fetch(current, segment) do
+      {:ok, child} ->
+        with {:ok, updated_child} <- do_delete(child, rest, path) do
+          {:ok, Map.put(current, segment, updated_child)}
+        end
+
+      :error ->
+        {:error, {:invalid_path, path}}
+    end
+  end
+
+  defp do_delete(current, _segments, path) when not is_map(current),
+    do: {:error, {:invalid_path, path}}
 
   defp default_container([next | _]) when is_integer(next), do: []
   defp default_container(_), do: %{}

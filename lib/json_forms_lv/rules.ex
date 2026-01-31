@@ -4,13 +4,9 @@ defmodule JsonFormsLV.Rules do
 
   Rule state reflects element-level rules; parent visibility and enabled
   inheritance is applied at render time by the Phoenix components.
-
-  Composed rule conditions (AND/OR) are logged and treated as false.
   """
 
   alias JsonFormsLV.{Data, Path}
-
-  require Logger
 
   @spec evaluate(map(), term(), map() | nil, keyword()) :: map()
   def evaluate(uischema, data, validator, validator_opts \\ []) when is_map(uischema) do
@@ -26,6 +22,26 @@ defmodule JsonFormsLV.Rules do
     traverse(uischema, data, validator, validator_opts, "", [], %{}, cache)
   end
 
+  @spec evaluate(map(), term(), map() | nil, keyword(), map(), term()) :: {map(), map()}
+  def evaluate(uischema, data, validator, validator_opts, cache, max_elements)
+      when is_map(uischema) and is_map(cache) do
+    max_elements = normalize_max_elements(max_elements)
+
+    case max_elements do
+      :infinity ->
+        traverse(uischema, data, validator, validator_opts, "", [], %{}, cache)
+
+      max when is_integer(max) and max > 0 ->
+        {rule_state, cache, _count} =
+          traverse_limited(uischema, data, validator, validator_opts, "", [], %{}, cache, max, 0)
+
+        {rule_state, cache}
+
+      _ ->
+        {%{}, cache}
+    end
+  end
+
   @type rule_entry :: %{
           render_key: String.t(),
           condition: map(),
@@ -36,9 +52,15 @@ defmodule JsonFormsLV.Rules do
 
   @spec index(map()) :: [rule_entry]
   def index(uischema) when is_map(uischema) do
-    uischema
-    |> collect_index("", [], [])
-    |> Enum.reverse()
+    index(uischema, :infinity)
+  end
+
+  @spec index(map(), term()) :: [rule_entry]
+  def index(uischema, max_elements) when is_map(uischema) do
+    max_elements = normalize_max_elements(max_elements)
+
+    {entries, _count} = collect_index(uischema, "", [], [], max_elements, 0)
+    Enum.reverse(entries)
   end
 
   @spec evaluate_incremental(
@@ -131,6 +153,53 @@ defmodule JsonFormsLV.Rules do
     end
   end
 
+  defp traverse_limited(
+         uischema,
+         data,
+         validator,
+         validator_opts,
+         parent_path,
+         element_path,
+         acc,
+         cache,
+         max,
+         count
+       ) do
+    if count >= max do
+      {acc, cache, count}
+    else
+      path = element_path_for(uischema, parent_path)
+      element_key = element_key(uischema, element_path)
+      render_key = render_key(element_key, path)
+
+      {rule_state, cache} = rule_state_for(uischema, data, validator, validator_opts, cache)
+      acc = Map.put(acc, render_key, rule_state)
+      count = count + 1
+
+      case Map.get(uischema, "elements") do
+        elements when is_list(elements) ->
+          Enum.with_index(elements)
+          |> Enum.reduce({acc, cache, count}, fn {child, index}, {acc, cache, count} ->
+            traverse_limited(
+              child,
+              data,
+              validator,
+              validator_opts,
+              path,
+              element_path ++ [index],
+              acc,
+              cache,
+              max,
+              count
+            )
+          end)
+
+        _ ->
+          {acc, cache, count}
+      end
+    end
+  end
+
   defp element_path_for(%{"type" => "Control", "scope" => scope}, _parent_path)
        when is_binary(scope) do
     Path.schema_pointer_to_data_path(scope)
@@ -173,14 +242,28 @@ defmodule JsonFormsLV.Rules do
     end
   end
 
-  defp condition_true?(%{"type" => type} = condition, _data, _validator, _opts, _fail, cache)
-       when type in ["AND", "OR"] do
-    Logger.warning("Unsupported composed rule condition",
-      condition_type: type,
-      condition: condition
-    )
+  defp condition_true?(
+         %{"type" => type, "conditions" => conditions},
+         data,
+         validator,
+         opts,
+         fail,
+         cache
+       )
+       when type in ["AND", "OR"] and is_list(conditions) do
+    initial = if type == "AND", do: true, else: false
 
-    {false, cache}
+    Enum.reduce_while(conditions, {initial, cache}, fn condition, {_result, cache} ->
+      {result, cache} = condition_true?(condition, data, validator, opts, fail, cache)
+
+      case type do
+        "AND" ->
+          if result, do: {:cont, {true, cache}}, else: {:halt, {false, cache}}
+
+        "OR" ->
+          if result, do: {:halt, {true, cache}}, else: {:cont, {false, cache}}
+      end
+    end)
   end
 
   defp condition_true?(_condition, _data, _validator, _opts, _fail_when_undefined, cache),
@@ -281,29 +364,35 @@ defmodule JsonFormsLV.Rules do
   defp prefix?([segment | rest], [segment | target_rest]), do: prefix?(rest, target_rest)
   defp prefix?(_segments, _target_segments), do: false
 
-  defp collect_index(uischema, parent_path, element_path, acc) do
-    path = element_path_for(uischema, parent_path)
-    element_key = element_key(uischema, element_path)
-    render_key = render_key(element_key, path)
+  defp collect_index(uischema, parent_path, element_path, acc, max, count) do
+    if count >= max do
+      {acc, count}
+    else
+      path = element_path_for(uischema, parent_path)
+      element_key = element_key(uischema, element_path)
+      render_key = render_key(element_key, path)
 
-    acc =
-      case Map.get(uischema, "rule") do
-        rule when is_map(rule) ->
-          [rule_entry(rule, render_key) | acc]
+      count = count + 1
+
+      acc =
+        case Map.get(uischema, "rule") do
+          rule when is_map(rule) ->
+            [rule_entry(rule, render_key) | acc]
+
+          _ ->
+            acc
+        end
+
+      case Map.get(uischema, "elements") do
+        elements when is_list(elements) ->
+          Enum.with_index(elements)
+          |> Enum.reduce({acc, count}, fn {child, index}, {acc, count} ->
+            collect_index(child, path, element_path ++ [index], acc, max, count)
+          end)
 
         _ ->
-          acc
+          {acc, count}
       end
-
-    case Map.get(uischema, "elements") do
-      elements when is_list(elements) ->
-        Enum.with_index(elements)
-        |> Enum.reduce(acc, fn {child, index}, acc ->
-          collect_index(child, path, element_path ++ [index], acc)
-        end)
-
-      _ ->
-        acc
     end
   end
 
@@ -326,6 +415,12 @@ defmodule JsonFormsLV.Rules do
   end
 
   defp scope_path(_condition), do: nil
+
+  defp normalize_max_elements(:infinity), do: :infinity
+
+  defp normalize_max_elements(max) when is_integer(max) and max > 0, do: max
+
+  defp normalize_max_elements(_max), do: :infinity
 
   defp apply_effect("HIDE", true), do: %{visible?: false, enabled?: true}
   defp apply_effect("HIDE", false), do: %{visible?: true, enabled?: true}

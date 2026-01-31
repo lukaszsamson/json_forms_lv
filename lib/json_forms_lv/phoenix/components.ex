@@ -5,7 +5,7 @@ defmodule JsonFormsLV.Phoenix.Components do
 
   use Phoenix.Component
 
-  alias JsonFormsLV.{Data, Dispatch, Engine, Errors, Limits, Path, Registry, Schema, State}
+  alias JsonFormsLV.{Data, Dispatch, Errors, Limits, Path, Registry, Schema, State}
 
   attr(:id, :string, required: true)
   attr(:schema, :map, required: true)
@@ -32,6 +32,9 @@ defmodule JsonFormsLV.Phoenix.Components do
 
   @doc """
   Render a JSON Forms UI from schema, uischema, and data.
+
+  Use `state={@state}` to pass a precomputed `JsonFormsLV.State` from your LiveView.
+  For a self-contained integration, use `JsonFormsLV.Phoenix.LiveComponent`.
 
   Use `wrap_form={false}` when you want to supply your own `<.form>` wrapper.
 
@@ -66,6 +69,7 @@ defmodule JsonFormsLV.Phoenix.Components do
           uischema={@uischema}
           data={@data}
           form_id={@id}
+          config={@opts}
           binding={@binding}
           streams={@streams}
           element_path={[]}
@@ -83,6 +87,7 @@ defmodule JsonFormsLV.Phoenix.Components do
         uischema={@uischema}
         data={@data}
         form_id={@id}
+        config={@opts}
         binding={@binding}
         streams={@streams}
         element_path={[]}
@@ -126,37 +131,23 @@ defmodule JsonFormsLV.Phoenix.Components do
       |> Map.put(:data, assigns.data)
       |> Map.put(:readonly, assigns.readonly)
       |> Map.put(:i18n, assigns.i18n)
-      |> Map.put(:opts, merge_config(assigns.state.opts, assigns.opts))
-
-    {:ok, state} = Engine.set_validation_mode(state, assigns.validation_mode)
-    {:ok, state} = Engine.set_additional_errors(state, assigns.additional_errors)
 
     assign(assigns, :state, state)
   end
 
   defp ensure_state(assigns) do
-    init_opts =
-      assigns.opts
-      |> merge_config(%{validation_mode: assigns.validation_mode})
+    opts = merge_config(%{}, assigns.opts)
 
-    state =
-      case Engine.init(assigns.schema, assigns.uischema, assigns.data, init_opts) do
-        {:ok, %State{} = state} ->
-          state
-
-        {:error, _reason} ->
-          %State{schema: assigns.schema, uischema: assigns.uischema, data: assigns.data}
-      end
-
-    state =
-      %State{
-        state
-        | additional_errors: assigns.additional_errors,
-          readonly: assigns.readonly,
-          i18n: assigns.i18n
-      }
-
-    {:ok, state} = Engine.set_additional_errors(state, assigns.additional_errors)
+    state = %State{
+      schema: assigns.schema,
+      uischema: assigns.uischema,
+      data: assigns.data,
+      opts: opts,
+      validation_mode: assigns.validation_mode,
+      additional_errors: assigns.additional_errors,
+      readonly: assigns.readonly,
+      i18n: assigns.i18n
+    }
 
     assign(assigns, :state, state)
   end

@@ -3,7 +3,7 @@ defmodule JsonFormsLV.Phoenix.ComponentsTest do
 
   import Phoenix.LiveViewTest
 
-  alias JsonFormsLV.Phoenix.Components
+  alias JsonFormsLV.{Engine, Phoenix.Components}
 
   defp render_forms(opts) do
     render_component(&Components.json_forms/1, opts)
@@ -32,12 +32,15 @@ defmodule JsonFormsLV.Phoenix.ComponentsTest do
       ]
     }
 
+    {:ok, state} = Engine.init(schema, uischema, %{"flag" => true, "name" => "Ada"}, %{})
+
     html =
       render_forms(
         id: "hidden-parent",
         schema: schema,
         uischema: uischema,
-        data: %{"flag" => true, "name" => "Ada"},
+        data: state.data,
+        state: state,
         wrap_form: false
       )
 
@@ -67,12 +70,15 @@ defmodule JsonFormsLV.Phoenix.ComponentsTest do
       ]
     }
 
+    {:ok, state} = Engine.init(schema, uischema, %{"flag" => true, "name" => "Ada"}, %{})
+
     html =
       render_forms(
         id: "disabled-parent",
         schema: schema,
         uischema: uischema,
-        data: %{"flag" => true, "name" => "Ada"},
+        data: state.data,
+        state: state,
         wrap_form: false
       )
 
@@ -101,12 +107,15 @@ defmodule JsonFormsLV.Phoenix.ComponentsTest do
       }
     }
 
+    {:ok, state} = Engine.init(schema, uischema, %{"flag" => true, "name" => "Ada"}, %{})
+
     html =
       render_forms(
         id: "readonly-rule",
         schema: schema,
         uischema: uischema,
-        data: %{"flag" => true, "name" => "Ada"},
+        data: state.data,
+        state: state,
         readonly: true,
         wrap_form: false
       )
@@ -135,12 +144,15 @@ defmodule JsonFormsLV.Phoenix.ComponentsTest do
       }
     }
 
+    {:ok, state} = Engine.init(schema, uischema, %{"flag" => true, "name" => "Ada"}, %{})
+
     html =
       render_forms(
         id: "schema-readonly",
         schema: schema,
         uischema: uischema,
-        data: %{"flag" => true, "name" => "Ada"},
+        data: state.data,
+        state: state,
         wrap_form: false
       )
 
@@ -169,12 +181,15 @@ defmodule JsonFormsLV.Phoenix.ComponentsTest do
       }
     }
 
+    {:ok, state} = Engine.init(schema, uischema, %{"flag" => true, "name" => "Ada"}, %{})
+
     html =
       render_forms(
         id: "uischema-readonly",
         schema: schema,
         uischema: uischema,
-        data: %{"flag" => true, "name" => "Ada"},
+        data: state.data,
+        state: state,
         wrap_form: false
       )
 

@@ -49,6 +49,35 @@ end
 The component accepts `renderers`, `control_renderers`, and `layout_renderers`.
 Any list passed via `renderers` is applied to both control and layout categories.
 
+## Rendering components
+
+Use the function component when you manage `JsonFormsLV.State` in your LiveView:
+
+```elixir
+<.json_forms
+  id="profile-form"
+  schema={@schema}
+  uischema={@uischema}
+  data={@data}
+  state={@state}
+  wrap_form={false}
+/>
+```
+
+For a self-contained integration, use the LiveComponent:
+
+```elixir
+<.live_component
+  module={JsonFormsLV.Phoenix.LiveComponent}
+  id="profile-form"
+  schema={@schema}
+  uischema={@uischema}
+  data={@data}
+  opts={@json_forms_opts}
+  notify={self()}
+/>
+```
+
 ### Log tester errors
 
 Enable logging for custom tester exceptions:
@@ -77,3 +106,8 @@ Control when validation runs by setting `opts[:validate_on]` (default: `:change`
 ### Defaults
 
 Enable `opts[:apply_defaults]` to apply JSON Schema defaults when initializing data.
+
+### Path format
+
+JsonFormsLV uses dot-delimited data paths internally (for example: `"profile.name"`).
+Property names containing dots are not supported.

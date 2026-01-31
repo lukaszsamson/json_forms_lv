@@ -1,8 +1,6 @@
 defmodule JsonFormsLV.RulesTest do
   use ExUnit.Case, async: true
 
-  import ExUnit.CaptureLog
-
   alias JsonFormsLV.{Engine, Rules}
 
   test "hide rule toggles visibility" do
@@ -123,11 +121,12 @@ defmodule JsonFormsLV.RulesTest do
     assert state.rule_state[render_key][:enabled?] == true
   end
 
-  test "composed condition logs warning and is treated as false" do
+  test "composed AND condition evaluates all subconditions" do
     schema = %{
       "type" => "object",
       "properties" => %{
         "flag" => %{"type" => "boolean"},
+        "enabled" => %{"type" => "boolean"},
         "name" => %{"type" => "string"}
       }
     }
@@ -140,7 +139,8 @@ defmodule JsonFormsLV.RulesTest do
         "condition" => %{
           "type" => "AND",
           "conditions" => [
-            %{"scope" => "#/properties/flag", "schema" => %{"const" => true}}
+            %{"scope" => "#/properties/flag", "schema" => %{"const" => true}},
+            %{"scope" => "#/properties/enabled", "schema" => %{"const" => true}}
           ]
         }
       }
@@ -149,13 +149,54 @@ defmodule JsonFormsLV.RulesTest do
     element_key = Rules.element_key(uischema, [])
     render_key = Rules.render_key(element_key, "name")
 
-    log =
-      capture_log(fn ->
-        {:ok, state} = Engine.init(schema, uischema, %{"flag" => true, "name" => "Ada"}, %{})
-        assert state.rule_state[render_key][:visible?] == true
-      end)
+    {:ok, state} =
+      Engine.init(schema, uischema, %{"flag" => true, "enabled" => true, "name" => "Ada"}, %{})
 
-    assert log =~ "Unsupported composed rule condition"
+    assert state.rule_state[render_key][:visible?] == false
+
+    {:ok, state} =
+      Engine.init(schema, uischema, %{"flag" => true, "enabled" => false, "name" => "Ada"}, %{})
+
+    assert state.rule_state[render_key][:visible?] == true
+  end
+
+  test "composed OR condition evaluates any subcondition" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{
+        "flag" => %{"type" => "boolean"},
+        "enabled" => %{"type" => "boolean"},
+        "name" => %{"type" => "string"}
+      }
+    }
+
+    uischema = %{
+      "type" => "Control",
+      "scope" => "#/properties/name",
+      "rule" => %{
+        "effect" => "HIDE",
+        "condition" => %{
+          "type" => "OR",
+          "conditions" => [
+            %{"scope" => "#/properties/flag", "schema" => %{"const" => true}},
+            %{"scope" => "#/properties/enabled", "schema" => %{"const" => true}}
+          ]
+        }
+      }
+    }
+
+    element_key = Rules.element_key(uischema, [])
+    render_key = Rules.render_key(element_key, "name")
+
+    {:ok, state} =
+      Engine.init(schema, uischema, %{"flag" => false, "enabled" => true, "name" => "Ada"}, %{})
+
+    assert state.rule_state[render_key][:visible?] == false
+
+    {:ok, state} =
+      Engine.init(schema, uischema, %{"flag" => false, "enabled" => false, "name" => "Ada"}, %{})
+
+    assert state.rule_state[render_key][:visible?] == true
   end
 
   test "evaluate_incremental updates only affected rules" do

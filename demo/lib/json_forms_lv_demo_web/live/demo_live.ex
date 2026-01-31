@@ -452,6 +452,25 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           </.form>
         </div>
 
+        <div id="demo-live-component" class="space-y-3 rounded-lg border border-zinc-200 p-4">
+          <div class="space-y-1">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+              LiveComponent
+            </h2>
+            <p class="text-xs text-zinc-600">
+              Self-contained JSON Forms component with its own state.
+            </p>
+          </div>
+          <.live_component
+            module={JsonFormsLV.Phoenix.LiveComponent}
+            id="demo-json-forms-component"
+            schema={live_component_schema()}
+            uischema={live_component_uischema()}
+            data={live_component_data()}
+            opts={%{validate_on: :blur}}
+          />
+        </div>
+
         <%= if @state.submitted do %>
           <div class="space-y-2">
             <p id="demo-submit-status" class="text-sm font-semibold text-zinc-800">
@@ -476,7 +495,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         </div>
 
         <div class="space-y-2">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">Errors</h2>
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+            Errors (internal state)
+          </h2>
           <pre
             id="debug-errors"
             class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto"
@@ -614,6 +635,45 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           "options" => %{"multi" => true}
         }
       ]
+    }
+  end
+
+  defp live_component_schema do
+    %{
+      "type" => "object",
+      "required" => ["title"],
+      "properties" => %{
+        "title" => %{"type" => "string", "title" => "Title", "minLength" => 1},
+        "owner" => %{"type" => "string", "title" => "Owner"},
+        "status" => %{
+          "type" => "string",
+          "title" => "Status",
+          "enum" => ["planned", "active", "complete"]
+        },
+        "due" => %{"type" => "string", "format" => "date", "title" => "Due"}
+      }
+    }
+  end
+
+  defp live_component_uischema do
+    %{
+      "type" => "Group",
+      "label" => "Component form",
+      "elements" => [
+        %{"type" => "Control", "scope" => "#/properties/title"},
+        %{"type" => "Control", "scope" => "#/properties/owner"},
+        %{"type" => "Control", "scope" => "#/properties/status"},
+        %{"type" => "Control", "scope" => "#/properties/due"}
+      ]
+    }
+  end
+
+  defp live_component_data do
+    %{
+      "title" => "Launch plan",
+      "owner" => "Ada",
+      "status" => "active",
+      "due" => "2025-02-15"
     }
   end
 
