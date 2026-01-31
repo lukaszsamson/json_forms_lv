@@ -21,11 +21,16 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
     categories = Map.get(assigns.uischema, "elements", [])
     options = Map.get(assigns.uischema, "options", %{})
     default_index = default_index(options, length(categories))
+    state_map = categorization_state(assigns)
+    active_index = active_index(state_map, assigns.render_key, default_index)
+    persist_tabs? = is_map(state_map)
 
     assigns =
       assigns
       |> assign(:categories, Enum.with_index(categories))
       |> assign(:default_index, default_index)
+      |> assign(:active_index, active_index)
+      |> assign(:persist_tabs?, persist_tabs?)
 
     ~H"""
     <%= if @visible? do %>
@@ -37,9 +42,9 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
               type="button"
               role="tab"
               aria-controls={panel_id(@id, index)}
-              aria-selected={index == @default_index}
-              tabindex={if index == @default_index, do: "0", else: "-1"}
-              phx-click={tab_js(@id, @categories, index)}
+              aria-selected={if index == @active_index, do: "true", else: "false"}
+              tabindex={if index == @active_index, do: "0", else: "-1"}
+              phx-click={tab_js(@id, @categories, index, @persist_tabs?, @render_key, @target)}
               disabled={not @enabled? or @readonly?}
             >
               {category_label(category, index, @i18n, @ctx)}
@@ -53,7 +58,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
               role="tabpanel"
               aria-labelledby={tab_id(@id, index)}
               class="jf-category-panel"
-              style={if index != @default_index, do: "display: none;"}
+              style={if index != @active_index, do: "display: none;"}
             >
               <.dispatch
                 state={@state}
@@ -71,7 +76,12 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
                 on_submit={@on_submit}
                 target={@target}
                 config={@config}
-                context={Map.put(@context || %{}, :parent_uischema_type, "Categorization")}
+                context={
+                  Map.merge(@context || %{}, %{
+                    parent_uischema_type: "Categorization",
+                    categorization_ancestor?: true
+                  })
+                }
                 parent_visible?={@visible?}
                 parent_enabled?={@enabled?}
               />
@@ -97,7 +107,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
   defp tab_id(base_id, index), do: "#{base_id}-tab-#{index}"
   defp panel_id(base_id, index), do: "#{base_id}-panel-#{index}"
 
-  defp tab_js(base_id, categories, active_index) do
+  defp tab_js(base_id, categories, active_index, persist_tabs?, render_key, target) do
     panel_ids = Enum.map(categories, fn {_category, index} -> panel_id(base_id, index) end)
     tab_ids = Enum.map(categories, fn {_category, index} -> tab_id(base_id, index) end)
 
@@ -107,6 +117,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
     %JS{}
     |> toggle_panels(panel_ids, active_panel)
     |> toggle_tabs(tab_ids, active_tab)
+    |> maybe_push_tab(persist_tabs?, render_key, active_index, target)
   end
 
   defp toggle_panels(js, panel_ids, active_panel) do
@@ -131,6 +142,36 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
         |> JS.set_attribute({"tabindex", "-1"}, to: "##{tab_id}")
       end
     end)
+  end
+
+  defp maybe_push_tab(js, true, render_key, index, target) do
+    JS.push(js, "jf:category_select", value: %{key: render_key, index: index}, target: target)
+  end
+
+  defp maybe_push_tab(js, _persist?, _render_key, _index, _target), do: js
+
+  defp categorization_state(assigns) do
+    config = assigns.config || %{}
+
+    Map.get(config, :categorization_state) || Map.get(config, "categorization_state")
+  end
+
+  defp active_index(state_map, render_key, default_index)
+       when is_map(state_map) and is_binary(render_key) do
+    case Map.fetch(state_map, render_key) do
+      {:ok, index} when is_integer(index) -> index
+      {:ok, index} when is_binary(index) -> parse_index(index, default_index)
+      _ -> default_index
+    end
+  end
+
+  defp active_index(_state_map, _render_key, default_index), do: default_index
+
+  defp parse_index(value, fallback) do
+    case Integer.parse(value) do
+      {index, ""} -> index
+      _ -> fallback
+    end
   end
 
   defp default_index(options, total) do

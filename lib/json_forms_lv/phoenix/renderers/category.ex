@@ -27,7 +27,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Category do
         Map.get(options, "showLabel", true) != false
 
     show_label? =
-      if Map.get(assigns.context || %{}, :parent_uischema_type) == "Categorization" do
+      if Map.get(assigns.context || %{}, :categorization_ancestor?) do
         false
       else
         show_label?

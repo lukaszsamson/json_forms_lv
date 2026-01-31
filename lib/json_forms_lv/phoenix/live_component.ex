@@ -33,10 +33,19 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
       notify: nil
     }
 
+    previous = socket.assigns
     assigns = Map.merge(defaults, assigns)
     assigns = Map.delete(assigns, :streams)
 
-    previous = socket.assigns
+    categorization_state =
+      if Map.has_key?(assigns, :categorization_state) do
+        assigns.categorization_state
+      else
+        previous[:categorization_state] || %{}
+      end
+
+    assigns = Map.put(assigns, :categorization_state, categorization_state)
+
     socket = assign(socket, assigns)
 
     state = previous[:state]
@@ -127,6 +136,13 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
     {:noreply, socket}
   end
 
+  def handle_event("jf:category_select", %{"key" => key, "index" => index}, socket) do
+    index = normalize_index(index)
+    state_map = socket.assigns[:categorization_state] || %{}
+    state_map = Map.put(state_map, key, index)
+    {:noreply, assign(socket, :categorization_state, state_map)}
+  end
+
   def handle_event("jf:add_item", %{"path" => path} = params, socket) do
     opts = Map.get(params, "opts", %{})
     notify = socket.assigns[:notify]
@@ -207,7 +223,7 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
         control_renderers={@control_renderers}
         layout_renderers={@layout_renderers}
         cells={@cells}
-        opts={@opts}
+        opts={Map.put(@opts || %{}, :categorization_state, @categorization_state)}
         streams={assigns[:streams]}
         on_change={@on_change}
         on_blur={@on_blur}
@@ -319,4 +335,15 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
   end
 
   defp notify_event(_notify, _event, _state), do: :ok
+
+  defp normalize_index(value) when is_integer(value), do: value
+
+  defp normalize_index(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {index, ""} -> index
+      _ -> 0
+    end
+  end
+
+  defp normalize_index(_value), do: 0
 end

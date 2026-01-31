@@ -34,6 +34,7 @@ defmodule JsonFormsLV.Phoenix.Components do
   Render a JSON Forms UI from schema, uischema, and data.
 
   Use `state={@state}` to pass a precomputed `JsonFormsLV.State` from your LiveView.
+  When `state` is omitted, this component renders without calling `Engine.init/4`.
   For a self-contained integration, use `JsonFormsLV.Phoenix.LiveComponent`.
 
   Use `wrap_form={false}` when you want to supply your own `<.form>` wrapper.

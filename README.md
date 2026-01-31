@@ -64,6 +64,10 @@ Use the function component when you manage `JsonFormsLV.State` in your LiveView:
 />
 ```
 
+When `state` is omitted, the function component renders without running `Engine.init/4`
+(no validation, defaults, or rule evaluation). Prefer passing a precomputed state or use
+the LiveComponent for self-contained mode.
+
 For a self-contained integration, use the LiveComponent:
 
 ```elixir
@@ -76,6 +80,20 @@ For a self-contained integration, use the LiveComponent:
   opts={@json_forms_opts}
   notify={self()}
 />
+```
+
+### Form-level event helpers
+
+Use `JsonFormsLV.Phoenix.Events` to extract form-level bindings from LiveView params:
+
+```elixir
+case JsonFormsLV.Phoenix.Events.extract_form_change(params) do
+  {:ok, %{path: path, value: value, meta: meta}} ->
+    Engine.update_data(state, path, value, meta)
+
+  {:error, _reason} ->
+    {:error, :invalid_params}
+end
 ```
 
 ### Log tester errors
@@ -111,3 +129,23 @@ Enable `opts[:apply_defaults]` to apply JSON Schema defaults when initializing d
 
 JsonFormsLV uses dot-delimited data paths internally (for example: `"profile.name"`).
 Property names containing dots are not supported.
+
+### Categorization tab state
+
+When using the function component, you can persist the active tab by storing a
+`categorization_state` map in your LiveView assigns:
+
+```elixir
+# In mount/handle_event
+@categorization_state = %{"Categorization@/" => 1}
+
+# In render
+<.json_forms
+  id="profile-form"
+  schema={@schema}
+  uischema={@uischema}
+  data={@data}
+  state={@state}
+  opts={%{categorization_state: @categorization_state}}
+/>
+```
