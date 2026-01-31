@@ -25,6 +25,7 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
     trim? = Map.get(assigns.options || %{}, "trim") == true
     maxlength = if restrict? and is_integer(max_length), do: max_length
     size = if trim? and is_integer(max_length), do: max_length
+    locale = locale(assigns)
 
     assigns =
       assign(assigns,
@@ -38,6 +39,7 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
         autocomplete: autocomplete,
         maxlength: maxlength,
         size: size,
+        locale: locale,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid],
         aria_required: assigns[:aria_required]
@@ -54,6 +56,7 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
       size={@size}
       list={@datalist_id}
       autocomplete={@autocomplete}
+      lang={@locale}
       disabled={@disabled?}
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}
@@ -107,4 +110,8 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
 
   defp max_length(%{"maxLength" => max_length}) when is_integer(max_length), do: max_length
   defp max_length(_schema), do: nil
+
+  defp locale(assigns) do
+    Map.get(assigns.i18n || %{}, :locale) || Map.get(assigns.i18n || %{}, "locale")
+  end
 end

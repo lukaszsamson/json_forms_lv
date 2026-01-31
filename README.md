@@ -178,6 +178,11 @@ handles this automatically; custom hosts can call `Engine.set_combinator/3` to p
 `i18nKeySuffix` on each subschema (appending `.label`). If none are set, labels fall back
 to `schema.title`/`schema.label` or the base path key.
 
+### Locale-aware formatting
+
+When `i18n.locale` is set, inputs render a matching `lang` attribute so browsers can apply
+locale-aware date/time formatting. Numbers remain unformatted (raw value) to preserve parsing.
+
 ### writeOnly handling
 
 Schema properties marked with `"writeOnly": true` are cleared from rendered inputs after submission

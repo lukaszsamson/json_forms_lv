@@ -34,6 +34,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
     autocomplete = autocomplete(assigns)
     list_id = if autocomplete?, do: "#{assigns.id}-list"
     placeholder = if allow_empty?, do: empty_label
+    locale = locale(assigns)
 
     assigns =
       assigns
@@ -49,6 +50,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
       |> assign(:autocomplete, autocomplete)
       |> assign(:list_id, list_id)
       |> assign(:placeholder, placeholder)
+      |> assign(:locale, locale)
       |> assign(:aria_describedby, assigns[:aria_describedby])
       |> assign(:aria_invalid, assigns[:aria_invalid])
       |> assign(:aria_required, assigns[:aria_required])
@@ -63,6 +65,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
         list={@list_id}
         placeholder={@placeholder}
         autocomplete={@autocomplete}
+        lang={@locale}
         disabled={@disabled?}
         aria-describedby={@aria_describedby}
         aria-invalid={@aria_invalid}
@@ -83,6 +86,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
       <select
         id={@id}
         name={@path}
+        lang={@locale}
         disabled={@disabled?}
         aria-describedby={@aria_describedby}
         aria-invalid={@aria_invalid}
@@ -135,6 +139,10 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
       value when is_binary(value) -> value
       _ -> nil
     end
+  end
+
+  defp locale(assigns) do
+    Map.get(assigns.i18n || %{}, :locale) || Map.get(assigns.i18n || %{}, "locale")
   end
 
   defp nullable?(%{"type" => types}) when is_list(types), do: "null" in types

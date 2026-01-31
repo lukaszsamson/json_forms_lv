@@ -19,6 +19,7 @@ defmodule JsonFormsLV.Phoenix.Cells.MultilineInput do
     max_length = max_length(assigns.schema)
     restrict? = Map.get(assigns.options || %{}, "restrict") == true
     maxlength = if restrict? and is_integer(max_length), do: max_length
+    locale = locale(assigns)
 
     assigns =
       assign(assigns,
@@ -28,6 +29,7 @@ defmodule JsonFormsLV.Phoenix.Cells.MultilineInput do
         blur_event: blur_event,
         placeholder: placeholder,
         maxlength: maxlength,
+        locale: locale,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid],
         aria_required: assigns[:aria_required]
@@ -40,6 +42,7 @@ defmodule JsonFormsLV.Phoenix.Cells.MultilineInput do
       disabled={@disabled?}
       placeholder={@placeholder}
       maxlength={@maxlength}
+      lang={@locale}
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}
       aria-required={@aria_required}
@@ -61,4 +64,8 @@ defmodule JsonFormsLV.Phoenix.Cells.MultilineInput do
 
   defp max_length(%{"maxLength" => max_length}) when is_integer(max_length), do: max_length
   defp max_length(_schema), do: nil
+
+  defp locale(assigns) do
+    Map.get(assigns.i18n || %{}, :locale) || Map.get(assigns.i18n || %{}, "locale")
+  end
 end

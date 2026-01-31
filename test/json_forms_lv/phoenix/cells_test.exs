@@ -47,13 +47,15 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
     assigns =
       base_assigns(%{
         schema: %{"type" => "string", "format" => "date"},
-        data: %{"field" => "2025-01-01"}
+        data: %{"field" => "2025-01-01"},
+        i18n: %{locale: "es"}
       })
 
     html = render_component(&DateInput.render/1, assigns)
 
     assert html =~ ~s/type="date"/
     assert html =~ ~s/value="2025-01-01"/
+    assert html =~ ~s/lang="es"/
   end
 
   test "date input exposes picker options" do

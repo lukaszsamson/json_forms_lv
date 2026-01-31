@@ -25,6 +25,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumRadio do
   def render(assigns) do
     change_event = if assigns.binding == :per_input, do: assigns.on_change
     blur_event = assigns.on_blur
+    locale = locale(assigns)
 
     assigns =
       assigns
@@ -33,6 +34,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumRadio do
       |> assign(:selected, assigns.value)
       |> assign(:change_event, change_event)
       |> assign(:blur_event, blur_event)
+      |> assign(:locale, locale)
       |> assign(:aria_describedby, assigns[:aria_describedby])
       |> assign(:aria_invalid, assigns[:aria_invalid])
       |> assign(:aria_required, assigns[:aria_required])
@@ -52,6 +54,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumRadio do
             value={option.value}
             checked={option.raw == @selected}
             disabled={@disabled?}
+            lang={@locale}
             aria-describedby={@aria_describedby}
             aria-invalid={@aria_invalid}
             aria-required={@aria_required}
@@ -68,5 +71,9 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumRadio do
 
   defp disabled?(assigns) do
     not assigns.enabled? or assigns.readonly?
+  end
+
+  defp locale(assigns) do
+    Map.get(assigns.i18n || %{}, :locale) || Map.get(assigns.i18n || %{}, "locale")
   end
 end

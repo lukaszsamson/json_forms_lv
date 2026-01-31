@@ -24,6 +24,7 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
     autocomplete = autocomplete(assigns)
     slider? = Map.get(assigns.options || %{}, "slider") == true
     {min, max, step} = slider_attrs(assigns.schema)
+    locale = locale(assigns)
 
     value =
       case assigns.value do
@@ -46,6 +47,7 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
         min: min,
         max: max,
         step: step,
+        locale: locale,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid],
         aria_required: assigns[:aria_required]
@@ -64,6 +66,7 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
       min={@min}
       max={@max}
       step={@step}
+      lang={@locale}
       disabled={@disabled?}
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}
@@ -139,5 +142,9 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
       value when is_float(value) -> value
       _ -> nil
     end
+  end
+
+  defp locale(assigns) do
+    Map.get(assigns.i18n || %{}, :locale) || Map.get(assigns.i18n || %{}, "locale")
   end
 end

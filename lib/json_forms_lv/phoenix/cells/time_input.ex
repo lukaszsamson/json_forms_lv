@@ -21,6 +21,7 @@ defmodule JsonFormsLV.Phoenix.Cells.TimeInput do
     blur_event = assigns.on_blur
     placeholder = placeholder(assigns)
     picker_attrs = picker_attrs(assigns)
+    locale = locale(assigns)
 
     assigns =
       assign(assigns,
@@ -30,6 +31,7 @@ defmodule JsonFormsLV.Phoenix.Cells.TimeInput do
         blur_event: blur_event,
         placeholder: placeholder,
         picker_attrs: picker_attrs,
+        locale: locale,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid]
       )
@@ -42,6 +44,7 @@ defmodule JsonFormsLV.Phoenix.Cells.TimeInput do
       type="time"
       value={@value}
       placeholder={@placeholder}
+      lang={@locale}
       disabled={@disabled?}
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}
@@ -89,6 +92,10 @@ defmodule JsonFormsLV.Phoenix.Cells.TimeInput do
 
   defp disabled?(assigns) do
     not assigns.enabled? or assigns.readonly?
+  end
+
+  defp locale(assigns) do
+    Map.get(assigns.i18n || %{}, :locale) || Map.get(assigns.i18n || %{}, "locale")
   end
 
   defp picker_attrs(assigns) do
