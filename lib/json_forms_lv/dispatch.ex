@@ -4,6 +4,7 @@ defmodule JsonFormsLV.Dispatch do
   """
 
   alias JsonFormsLV.Registry
+  require Logger
 
   @spec kind_for_uischema(map()) :: :control | :layout | :unknown
   def kind_for_uischema(%{"type" => "Control"}), do: :control
@@ -70,7 +71,12 @@ defmodule JsonFormsLV.Dispatch do
   defp safe_tester(module, uischema, schema, ctx) do
     module.tester(uischema, schema, ctx)
   rescue
-    _ -> :not_applicable
+    error ->
+      if Application.get_env(:json_forms_lv, :log_tester_errors, false) do
+        Logger.warning("Tester #{inspect(module)} raised: #{Exception.message(error)}")
+      end
+
+      :not_applicable
   end
 
   defp normalize_entry({module, opts}) when is_list(opts), do: {module, opts}

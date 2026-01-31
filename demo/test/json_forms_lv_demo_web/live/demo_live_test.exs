@@ -199,6 +199,17 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     refute has_element?(view, "input[name='tasks.0.done']")
   end
 
+  test "custom renderer scenario uses custom cell", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "custom"})
+
+    assert has_element?(view, "#demo-scenario", "custom")
+    assert has_element?(view, "input[name='message'][data-custom-cell='shout']")
+    refute has_element?(view, "input[name='note'][data-custom-cell='shout']")
+    assert has_element?(view, "#demo-json-forms-Control-note[data-custom-control='callout']")
+  end
+
   test "streaming arrays keep stable dom ids", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 

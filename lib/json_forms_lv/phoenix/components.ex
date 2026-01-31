@@ -21,6 +21,8 @@ defmodule JsonFormsLV.Phoenix.Components do
   attr(:wrap_form, :boolean, default: true)
   attr(:target, :any, default: nil)
   attr(:renderers, :list, default: [])
+  attr(:control_renderers, :list, default: [])
+  attr(:layout_renderers, :list, default: [])
   attr(:cells, :list, default: [])
   attr(:opts, :map, default: %{})
   attr(:streams, :map, default: nil)
@@ -148,8 +150,8 @@ defmodule JsonFormsLV.Phoenix.Components do
   defp ensure_registry(assigns) do
     custom =
       Registry.new(
-        control_renderers: assigns.renderers,
-        layout_renderers: assigns.renderers,
+        control_renderers: assigns.control_renderers ++ assigns.renderers,
+        layout_renderers: assigns.layout_renderers ++ assigns.renderers,
         cell_renderers: assigns.cells
       )
 

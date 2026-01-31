@@ -28,6 +28,8 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       |> assign(:i18n, config.i18n)
       |> assign(:validation_mode, config.validation_mode)
       |> assign(:json_forms_opts, config.json_forms_opts)
+      |> assign(:json_forms_cells, config.json_forms_cells)
+      |> assign(:json_forms_renderers, config.json_forms_renderers)
 
     socket = maybe_sync_array_streams(socket, state, config)
 
@@ -88,6 +90,8 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           |> assign(:i18n, config.i18n)
           |> assign(:validation_mode, config.validation_mode)
           |> assign(:json_forms_opts, config.json_forms_opts)
+          |> assign(:json_forms_cells, config.json_forms_cells)
+          |> assign(:json_forms_renderers, config.json_forms_renderers)
 
         socket = maybe_sync_array_streams(socket, state, config)
 
@@ -293,6 +297,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
             >
               Validation
             </button>
+            <button
+              id="scenario-custom"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="custom"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "custom" && "bg-zinc-900 text-white",
+                @scenario != "custom" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Custom renderer
+            </button>
           </div>
 
           <%= if @scenario == "i18n" do %>
@@ -404,6 +421,8 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               i18n={@i18n}
               validation_mode={@validation_mode}
               binding={:form_level}
+              renderers={@json_forms_renderers}
+              cells={@json_forms_cells}
               opts={@json_forms_opts}
               streams={assigns[:streams]}
               wrap_form={false}
@@ -597,6 +616,35 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp custom_schema do
+    %{
+      "type" => "object",
+      "required" => ["message"],
+      "properties" => %{
+        "message" => %{"type" => "string", "title" => "Message"},
+        "note" => %{"type" => "string", "title" => "Note"}
+      }
+    }
+  end
+
+  defp custom_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/message",
+          "options" => %{"format" => "shout"}
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/note",
+          "options" => %{"format" => "callout"}
+        }
+      ]
+    }
+  end
+
   defp arrays_registered_uischema do
     %{
       "type" => "VerticalLayout",
@@ -727,6 +775,16 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     })
   end
 
+  defp scenario_config("custom") do
+    base_config(%{
+      schema: custom_schema(),
+      uischema: custom_uischema(),
+      data: %{"message" => "Hello", "note" => "Keep it simple"},
+      json_forms_cells: [JsonFormsLvDemoWeb.CustomCells.ShoutInput],
+      json_forms_renderers: [JsonFormsLvDemoWeb.CustomRenderers.CalloutControl]
+    })
+  end
+
   defp scenario_config("i18n") do
     base_config(%{
       schema: formats_schema(),
@@ -799,7 +857,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         locale: nil,
         i18n: %{},
         validation_mode: :validate_and_show,
-        json_forms_opts: %{}
+        json_forms_opts: %{},
+        json_forms_cells: [],
+        json_forms_renderers: []
       },
       overrides
     )
