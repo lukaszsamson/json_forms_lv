@@ -16,6 +16,7 @@ defmodule JsonFormsLV.State do
             touched: MapSet.new(),
             submitted: false,
             rule_state: %{},
+            rule_schema_cache: %{},
             registry: nil,
             i18n: %{},
             readonly: false,

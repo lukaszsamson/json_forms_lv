@@ -15,6 +15,12 @@ defmodule JsonFormsLV.Rules do
     rule_state
   end
 
+  @spec evaluate(map(), term(), map() | nil, keyword(), map()) :: {map(), map()}
+  def evaluate(uischema, data, validator, validator_opts, cache)
+      when is_map(uischema) and is_map(cache) do
+    traverse(uischema, data, validator, validator_opts, "", [], %{}, cache)
+  end
+
   @spec element_key(map(), [non_neg_integer()]) :: String.t()
   def element_key(uischema, element_path) do
     case uischema do
@@ -142,8 +148,10 @@ defmodule JsonFormsLV.Rules do
   end
 
   defp fetch_compiled(schema, module, opts, cache) do
+    key = {module, opts, schema}
+
     case cache do
-      %{^schema => compiled} ->
+      %{^key => compiled} ->
         {compiled, cache}
 
       _ ->
@@ -153,7 +161,7 @@ defmodule JsonFormsLV.Rules do
             {:error, _} -> :error
           end
 
-        {compiled, Map.put(cache, schema, compiled)}
+        {compiled, Map.put(cache, key, compiled)}
     end
   end
 

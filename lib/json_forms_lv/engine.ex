@@ -261,9 +261,18 @@ defmodule JsonFormsLV.Engine do
     validator_opts = Map.get(opts, :validator_opts, [])
     resolver = Map.get(opts, :schema_resolver, JsonFormsLV.SchemaResolvers.Default)
 
-    needs_compile? =
-      schema != state.schema or state.validator == nil or
-        state.validator.module != validator or state.validator_opts != validator_opts
+    validator_changed? =
+      state.validator == nil or state.validator.module != validator or
+        state.validator_opts != validator_opts
+
+    needs_compile? = schema != state.schema or validator_changed?
+
+    rule_schema_cache =
+      if uischema != state.uischema or validator_changed? do
+        %{}
+      else
+        state.rule_schema_cache || %{}
+      end
 
     with {:ok, resolved_schema} <- resolver.resolve(schema, opts),
          {:ok, compiled} <-
@@ -274,7 +283,8 @@ defmodule JsonFormsLV.Engine do
           uischema: uischema,
           opts: opts,
           validator: %{module: validator, compiled: compiled},
-          validator_opts: validator_opts
+          validator_opts: validator_opts,
+          rule_schema_cache: rule_schema_cache
       }
 
       {:ok, validate_state(state)}
@@ -573,7 +583,16 @@ defmodule JsonFormsLV.Engine do
 
   defp validate_state(%State{} = state) do
     started_at = System.monotonic_time()
-    rule_state = Rules.evaluate(state.uischema, state.data, state.validator, state.validator_opts)
+
+    {rule_state, rule_schema_cache} =
+      Rules.evaluate(
+        state.uischema,
+        state.data,
+        state.validator,
+        state.validator_opts,
+        state.rule_schema_cache || %{}
+      )
+
     additional_errors = Errors.normalize_additional(state.additional_errors || [])
 
     validator_errors =
@@ -598,7 +617,8 @@ defmodule JsonFormsLV.Engine do
       state
       | errors: errors,
         additional_errors: additional_errors,
-        rule_state: rule_state
+        rule_state: rule_state,
+        rule_schema_cache: rule_schema_cache
     }
 
     emit_telemetry(:validate, started_at, %{error_count: length(errors)})
