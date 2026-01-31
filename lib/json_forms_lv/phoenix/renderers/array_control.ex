@@ -30,12 +30,25 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
     stream_name = stream_name(assigns)
     stream_entries = stream_entries(assigns, stream_name)
     stream? = stream_name != nil and is_map(assigns.streams)
+    hide_required? = Map.get(assigns.options, "hideRequiredAsterisk") == true
+    label = if (assigns.required? and label) && not hide_required?, do: label <> " *", else: label
+
+    show_unfocused_description? =
+      Map.get(assigns.options, "showUnfocusedDescription") != false
+
+    description_class =
+      if show_unfocused_description? do
+        "jf-description"
+      else
+        "jf-description jf-description--focus"
+      end
 
     assigns =
       assign(assigns,
         label: label,
         label_visible?: label_visible?,
         description: description,
+        description_class: description_class,
         items: items,
         item_ids: item_ids,
         item_labels: item_labels,
@@ -189,7 +202,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
         <% end %>
 
         <%= if @description do %>
-          <p class="jf-description">{@description}</p>
+          <p class={@description_class}>{@description}</p>
         <% end %>
 
         <%= if @show_errors? and @errors_for_control != [] do %>

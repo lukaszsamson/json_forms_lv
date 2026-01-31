@@ -20,6 +20,11 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
     suggestions = suggestions(assigns)
     datalist_id = if suggestions != [], do: "#{assigns.id}-list"
     autocomplete = autocomplete(assigns)
+    max_length = max_length(assigns.schema)
+    restrict? = Map.get(assigns.options || %{}, "restrict") == true
+    trim? = Map.get(assigns.options || %{}, "trim") == true
+    maxlength = if restrict? and is_integer(max_length), do: max_length
+    size = if trim? and is_integer(max_length), do: max_length
 
     assigns =
       assign(assigns,
@@ -31,6 +36,8 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
         suggestions: suggestions,
         datalist_id: datalist_id,
         autocomplete: autocomplete,
+        maxlength: maxlength,
+        size: size,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid],
         aria_required: assigns[:aria_required]
@@ -43,6 +50,8 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
       type="text"
       value={@value}
       placeholder={@placeholder}
+      maxlength={@maxlength}
+      size={@size}
       list={@datalist_id}
       autocomplete={@autocomplete}
       disabled={@disabled?}
@@ -95,4 +104,7 @@ defmodule JsonFormsLV.Phoenix.Cells.StringInput do
       _ -> nil
     end
   end
+
+  defp max_length(%{"maxLength" => max_length}) when is_integer(max_length), do: max_length
+  defp max_length(_schema), do: nil
 end

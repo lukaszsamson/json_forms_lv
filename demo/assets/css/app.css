@@ -124,6 +124,14 @@
   margin-top: 0.25rem;
 }
 
+.jf-description--focus {
+  display: none;
+}
+
+.jf-control:focus-within .jf-description--focus {
+  display: block;
+}
+
 .jf-errors {
   font-size: 0.75rem;
   color: var(--color-error);

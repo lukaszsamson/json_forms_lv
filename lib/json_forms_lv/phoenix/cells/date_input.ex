@@ -20,6 +20,7 @@ defmodule JsonFormsLV.Phoenix.Cells.DateInput do
     change_event = if assigns.binding == :per_input, do: assigns.on_change
     blur_event = assigns.on_blur
     placeholder = placeholder(assigns)
+    picker_attrs = picker_attrs(assigns)
 
     assigns =
       assign(assigns,
@@ -28,12 +29,14 @@ defmodule JsonFormsLV.Phoenix.Cells.DateInput do
         change_event: change_event,
         blur_event: blur_event,
         placeholder: placeholder,
+        picker_attrs: picker_attrs,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid]
       )
 
     ~H"""
     <input
+      {@picker_attrs}
       id={@id}
       name={@path}
       type="date"
@@ -81,4 +84,41 @@ defmodule JsonFormsLV.Phoenix.Cells.DateInput do
     placeholder = Map.get(assigns.options || %{}, "placeholder")
     if is_binary(placeholder), do: placeholder
   end
+
+  defp picker_attrs(assigns) do
+    options = assigns.options || %{}
+
+    %{}
+    |> put_attr("data-jf-date-format", Map.get(options, "dateFormat"))
+    |> put_attr("data-jf-date-save-format", Map.get(options, "dateSaveFormat"))
+    |> put_attr("data-jf-views", Map.get(options, "views"))
+    |> put_attr("data-jf-clear-label", Map.get(options, "clearLabel"))
+    |> put_attr("data-jf-cancel-label", Map.get(options, "cancelLabel"))
+    |> put_attr("data-jf-ok-label", Map.get(options, "okLabel"))
+  end
+
+  defp put_attr(attrs, _key, nil), do: attrs
+
+  defp put_attr(attrs, key, value) when is_binary(value) do
+    Map.put(attrs, key, value)
+  end
+
+  defp put_attr(attrs, key, value) when is_boolean(value) do
+    Map.put(attrs, key, to_string(value))
+  end
+
+  defp put_attr(attrs, key, value) when is_integer(value) do
+    Map.put(attrs, key, Integer.to_string(value))
+  end
+
+  defp put_attr(attrs, key, value) when is_list(value) do
+    value =
+      value
+      |> Enum.map(&to_string/1)
+      |> Enum.join(",")
+
+    Map.put(attrs, key, value)
+  end
+
+  defp put_attr(attrs, _key, _value), do: attrs
 end

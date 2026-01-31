@@ -27,6 +27,18 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
 
     radio? = Map.get(assigns.options, "format") == "radio"
     show_label? = (label_visible? and label) && not radio?
+    hide_required? = Map.get(assigns.options, "hideRequiredAsterisk") == true
+    label = if (assigns.required? and label) && not hide_required?, do: label <> " *", else: label
+
+    show_unfocused_description? =
+      Map.get(assigns.options, "showUnfocusedDescription") != false
+
+    description_class =
+      if show_unfocused_description? do
+        "jf-description"
+      else
+        "jf-description jf-description--focus"
+      end
 
     aria_describedby =
       [description_id, errors_id]
@@ -41,6 +53,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
       assign(assigns,
         label: label,
         description: description,
+        description_class: description_class,
         input_id: input_id,
         description_id: description_id,
         errors_id: errors_id,
@@ -97,7 +110,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
           required?={@required?}
         />
         <%= if @description do %>
-          <p id={@description_id} class="jf-description">{@description}</p>
+          <p id={@description_id} class={@description_class}>{@description}</p>
         <% end %>
         <%= if @show_errors? and @errors_for_control != [] do %>
           <ul id={@errors_id} class="jf-errors" role="alert">

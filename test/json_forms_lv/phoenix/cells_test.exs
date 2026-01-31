@@ -54,6 +54,31 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
     assert html =~ ~s/value="2025-01-01"/
   end
 
+  test "date input exposes picker options" do
+    assigns =
+      base_assigns(%{
+        schema: %{"type" => "string", "format" => "date"},
+        data: %{"field" => "2025-01-01"},
+        options: %{
+          "dateFormat" => "YYYY-MM-DD",
+          "dateSaveFormat" => "YYYY-MM-DD",
+          "views" => ["year", "month", "day"],
+          "clearLabel" => "Clear",
+          "cancelLabel" => "Cancel",
+          "okLabel" => "OK"
+        }
+      })
+
+    html = render_component(&DateInput.render/1, assigns)
+
+    assert html =~ ~s/data-jf-date-format="YYYY-MM-DD"/
+    assert html =~ ~s/data-jf-date-save-format="YYYY-MM-DD"/
+    assert html =~ ~s/data-jf-views="year,month,day"/
+    assert html =~ ~s/data-jf-clear-label="Clear"/
+    assert html =~ ~s/data-jf-cancel-label="Cancel"/
+    assert html =~ ~s/data-jf-ok-label="OK"/
+  end
+
   test "date-time input renders datetime-local type" do
     assigns =
       base_assigns(%{
@@ -67,6 +92,29 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
     assert html =~ ~s/value="2025-01-01T10:00"/
   end
 
+  test "date-time input exposes picker options" do
+    assigns =
+      base_assigns(%{
+        schema: %{"type" => "string", "format" => "date-time"},
+        data: %{"field" => "2025-01-01T10:00"},
+        options: %{
+          "dateTimeFormat" => "YYYY-MM-DD HH:mm",
+          "dateTimeSaveFormat" => "YYYY-MM-DD HH:mm",
+          "ampm" => true,
+          "views" => ["year", "month", "day", "hours"],
+          "okLabel" => "Apply"
+        }
+      })
+
+    html = render_component(&DateTimeInput.render/1, assigns)
+
+    assert html =~ ~s/data-jf-date-time-format="YYYY-MM-DD HH:mm"/
+    assert html =~ ~s/data-jf-date-time-save-format="YYYY-MM-DD HH:mm"/
+    assert html =~ ~s/data-jf-ampm="true"/
+    assert html =~ ~s/data-jf-views="year,month,day,hours"/
+    assert html =~ ~s/data-jf-ok-label="Apply"/
+  end
+
   test "time input renders time type" do
     assigns =
       base_assigns(%{
@@ -78,6 +126,27 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
 
     assert html =~ ~s/type="time"/
     assert html =~ ~s/value="09:30"/
+  end
+
+  test "time input exposes picker options" do
+    assigns =
+      base_assigns(%{
+        schema: %{"type" => "string", "format" => "time"},
+        data: %{"field" => "09:30"},
+        options: %{
+          "timeFormat" => "HH:mm",
+          "timeSaveFormat" => "HH:mm",
+          "ampm" => false,
+          "clearLabel" => "Clear"
+        }
+      })
+
+    html = render_component(&TimeInput.render/1, assigns)
+
+    assert html =~ ~s/data-jf-time-format="HH:mm"/
+    assert html =~ ~s/data-jf-time-save-format="HH:mm"/
+    assert html =~ ~s/data-jf-ampm="false"/
+    assert html =~ ~s/data-jf-clear-label="Clear"/
   end
 
   test "enum select renders options" do
@@ -122,6 +191,18 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
     assert html =~ "Line 1"
   end
 
+  test "multiline input respects restrict option" do
+    assigns =
+      base_assigns(%{
+        schema: %{"type" => "string", "maxLength" => 10},
+        options: %{"multi" => true, "restrict" => true}
+      })
+
+    html = render_component(&MultilineInput.render/1, assigns)
+
+    assert html =~ ~s/maxlength="10"/
+  end
+
   test "string input uses placeholder" do
     assigns = base_assigns(%{options: %{"placeholder" => "Enter name"}})
 
@@ -141,6 +222,19 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
     assert html =~ "<datalist"
     assert html =~ ~s/option value="Alpha"/
     assert html =~ ~s/option value="Beta"/
+  end
+
+  test "string input respects restrict and trim options" do
+    assigns =
+      base_assigns(%{
+        schema: %{"type" => "string", "maxLength" => 5},
+        options: %{"restrict" => true, "trim" => true}
+      })
+
+    html = render_component(&StringInput.render/1, assigns)
+
+    assert html =~ ~s/maxlength="5"/
+    assert html =~ ~s/size="5"/
   end
 
   test "enum select renders autocomplete datalist" do
