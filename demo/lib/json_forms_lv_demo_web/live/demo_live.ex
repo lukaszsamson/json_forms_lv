@@ -9,7 +9,10 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   def mount(_params, _session, socket) do
     config = scenario_config("basic")
 
-    {:ok, state} = Engine.init(config.schema, config.uischema, config.data, %{})
+    {:ok, state} =
+      Engine.init(config.schema, config.uischema, config.data, %{
+        validation_mode: config.validation_mode
+      })
 
     socket =
       socket
@@ -23,6 +26,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       |> assign(:readonly, config.readonly)
       |> assign(:locale, config.locale)
       |> assign(:i18n, config.i18n)
+      |> assign(:validation_mode, config.validation_mode)
 
     {:ok, socket}
   end
@@ -64,7 +68,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     scenario = scenario |> String.trim() |> String.downcase()
     config = scenario_config(scenario)
 
-    case Engine.init(config.schema, config.uischema, config.data, %{}) do
+    case Engine.init(config.schema, config.uischema, config.data, %{
+           validation_mode: config.validation_mode
+         }) do
       {:ok, state} ->
         socket =
           socket
@@ -77,6 +83,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           |> assign(:readonly, config.readonly)
           |> assign(:locale, config.locale)
           |> assign(:i18n, config.i18n)
+          |> assign(:validation_mode, config.validation_mode)
 
         {:noreply, socket}
 
@@ -96,6 +103,20 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
 
   def handle_event("toggle_readonly", _params, socket) do
     {:noreply, assign(socket, :readonly, not socket.assigns.readonly)}
+  end
+
+  def handle_event("set_validation_mode", %{"mode" => mode}, socket) do
+    validation_mode =
+      case String.trim(mode) do
+        "validate_and_show" -> :validate_and_show
+        "validate_and_hide" -> :validate_and_hide
+        "no_validation" -> :no_validation
+        _ -> socket.assigns.validation_mode
+      end
+
+    {:ok, state} = Engine.set_validation_mode(socket.assigns.state, validation_mode)
+
+    {:noreply, assign(socket, validation_mode: validation_mode, state: state)}
   end
 
   def handle_event(_event, _params, socket), do: {:noreply, socket}
@@ -194,6 +215,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
             >
               Readonly precedence
             </button>
+            <button
+              id="scenario-validation"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="validation"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "validation" && "bg-zinc-900 text-white",
+                @scenario != "validation" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Validation
+            </button>
           </div>
 
           <%= if @scenario == "i18n" do %>
@@ -241,6 +275,59 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
             </button>
           <% end %>
 
+          <%= if @scenario == "validation" do %>
+            <div class="flex flex-wrap items-center gap-2" id="demo-validation-toggle">
+              <span
+                id="demo-validation-mode"
+                class="text-xs font-semibold uppercase text-zinc-500"
+              >
+                Mode: {@validation_mode}
+              </span>
+              <button
+                id="validation-show"
+                type="button"
+                phx-click="set_validation_mode"
+                phx-value-mode="validate_and_show"
+                class={[
+                  "rounded-full px-3 py-1 text-xs font-semibold transition",
+                  @validation_mode == :validate_and_show && "bg-zinc-900 text-white",
+                  @validation_mode != :validate_and_show &&
+                    "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                ]}
+              >
+                Show
+              </button>
+              <button
+                id="validation-hide"
+                type="button"
+                phx-click="set_validation_mode"
+                phx-value-mode="validate_and_hide"
+                class={[
+                  "rounded-full px-3 py-1 text-xs font-semibold transition",
+                  @validation_mode == :validate_and_hide && "bg-zinc-900 text-white",
+                  @validation_mode != :validate_and_hide &&
+                    "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                ]}
+              >
+                Hide
+              </button>
+              <button
+                id="validation-off"
+                type="button"
+                phx-click="set_validation_mode"
+                phx-value-mode="no_validation"
+                class={[
+                  "rounded-full px-3 py-1 text-xs font-semibold transition",
+                  @validation_mode == :no_validation && "bg-zinc-900 text-white",
+                  @validation_mode != :no_validation &&
+                    "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                ]}
+              >
+                Off
+              </button>
+            </div>
+          <% end %>
+
           <.form for={@form} id="demo-json-forms-form" phx-change="jf:change" phx-submit="jf:submit">
             <.json_forms
               id="demo-json-forms"
@@ -250,6 +337,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               state={@state}
               readonly={@readonly}
               i18n={@i18n}
+              validation_mode={@validation_mode}
               binding={:form_level}
               wrap_form={false}
             />
@@ -516,6 +604,15 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     })
   end
 
+  defp scenario_config("validation") do
+    base_config(%{
+      schema: demo_schema(),
+      uischema: demo_uischema(),
+      data: %{"name" => "", "age" => 32, "subscribed" => true},
+      validation_mode: :validate_and_show
+    })
+  end
+
   defp scenario_config(_scenario) do
     base_config(%{
       schema: demo_schema(),
@@ -537,7 +634,15 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
 
   defp base_config(overrides) do
     Map.merge(
-      %{schema: %{}, uischema: %{}, data: %{}, readonly: false, locale: nil, i18n: %{}},
+      %{
+        schema: %{},
+        uischema: %{},
+        data: %{},
+        readonly: false,
+        locale: nil,
+        i18n: %{},
+        validation_mode: :validate_and_show
+      },
       overrides
     )
   end

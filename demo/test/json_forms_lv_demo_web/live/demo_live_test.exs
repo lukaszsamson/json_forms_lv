@@ -169,4 +169,17 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
 
     assert has_element?(view, "input[name='name'][disabled]")
   end
+
+  test "validation scenario toggles modes", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "validation"})
+
+    assert has_element?(view, "#demo-scenario", "validation")
+    assert has_element?(view, "#demo-validation-mode", "validate_and_show")
+
+    render_click(view, "set_validation_mode", %{"mode" => "no_validation"})
+
+    assert has_element?(view, "#demo-validation-mode", "no_validation")
+  end
 end
