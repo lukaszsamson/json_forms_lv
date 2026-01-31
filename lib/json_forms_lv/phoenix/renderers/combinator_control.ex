@@ -24,7 +24,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.CombinatorControl do
     description = I18n.translate_description(description, assigns.i18n, assigns.ctx)
 
     {kind, schemas} = combinator_schemas(assigns.schema)
-    options = schema_options(schemas)
+    options = schema_options(schemas, assigns)
     selection = combinator_selection(assigns, kind, length(options))
 
     hide_required? = Map.get(assigns.options, "hideRequiredAsterisk") == true
@@ -225,14 +225,18 @@ defmodule JsonFormsLV.Phoenix.Renderers.CombinatorControl do
     end
   end
 
-  defp schema_options(schemas) do
+  defp schema_options(schemas, assigns) do
     schemas
     |> Enum.with_index()
     |> Enum.map(fn {schema, index} ->
+      value = Map.get(schema, "const")
+
       label =
         Map.get(schema, "title") ||
           Map.get(schema, "label") ||
           "Option #{index + 1}"
+
+      label = I18n.translate_one_of(schema, value, label, assigns.i18n, assigns.ctx)
 
       %{label: label, schema: schema}
     end)

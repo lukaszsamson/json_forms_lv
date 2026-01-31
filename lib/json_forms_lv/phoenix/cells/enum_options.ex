@@ -20,7 +20,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumOptions do
         Enum.map(schema["oneOf"], fn option ->
           value = Map.get(option, "const")
           label = Map.get(option, "title") || default_label(value)
-          label = I18n.translate_enum(value, label, assigns.i18n, assigns.ctx)
+          label = I18n.translate_one_of(option, value, label, assigns.i18n, assigns.ctx)
           %{value: encode_value(value), raw: value, label: label}
         end)
 

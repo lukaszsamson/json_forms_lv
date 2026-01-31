@@ -32,6 +32,19 @@ defmodule JsonFormsLV.I18nTest do
              "status.active:Active"
   end
 
+  test "translate_one_of uses item i18n key" do
+    translate = fn key, default, _ctx ->
+      if key == "profile.contact.email.label", do: "Email (i18n)", else: default
+    end
+
+    ctx = %{uischema: %{}, schema: %{}, path: "profile.contact"}
+
+    option = %{"i18n" => "profile.contact.email", "const" => "email"}
+
+    assert I18n.translate_one_of(option, "email", "Email", %{translate: translate}, ctx) ==
+             "Email (i18n)"
+  end
+
   test "translate_error uses translate fallback" do
     translate = fn key, _default, _ctx -> "#{key}:translated" end
 

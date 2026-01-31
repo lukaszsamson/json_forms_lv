@@ -172,6 +172,12 @@ Override the resolver with `opts[:uischema_resolver]` when needed.
 `CombinatorControl` emits `jf:select_combinator` with `path` + `selection`. The LiveComponent
 handles this automatically; custom hosts can call `Engine.set_combinator/3` to persist selection.
 
+### oneOf i18n keys
+
+`oneOf`/`anyOf`/`allOf` option labels honor `i18n`, `i18nKey`, `i18nKeyPrefix`, and
+`i18nKeySuffix` on each subschema (appending `.label`). If none are set, labels fall back
+to `schema.title`/`schema.label` or the base path key.
+
 ### writeOnly handling
 
 Schema properties marked with `"writeOnly": true` are cleared from rendered inputs after submission

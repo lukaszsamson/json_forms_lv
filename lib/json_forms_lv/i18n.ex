@@ -60,6 +60,33 @@ defmodule JsonFormsLV.I18n do
     translate_key(translate, key, default, ctx)
   end
 
+  def translate_one_of(option, value, default, i18n, ctx) do
+    translate = translate_fun(i18n)
+
+    key =
+      cond do
+        is_binary(option["i18n"]) ->
+          option["i18n"] <> ".label"
+
+        is_binary(option["i18nKey"]) ->
+          option["i18nKey"] <> ".label"
+
+        is_binary(option["i18nKeyPrefix"]) ->
+          option["i18nKeyPrefix"] <> ".label"
+
+        is_binary(option["i18nKeySuffix"]) and is_binary(base_key(ctx)) ->
+          base_key(ctx) <> "." <> option["i18nKeySuffix"] <> ".label"
+
+        is_binary(base_key(ctx)) and not is_nil(value) ->
+          base_key(ctx) <> "." <> to_string(value)
+
+        true ->
+          nil
+      end
+
+    translate_key(translate, key, default, ctx)
+  end
+
   defp translate_error_fallback(%Error{} = error, translate, ctx) do
     if is_function(translate, 3) do
       base = base_key(ctx)
