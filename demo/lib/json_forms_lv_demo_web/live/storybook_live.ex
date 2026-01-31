@@ -109,9 +109,15 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
         <div class="space-y-2">
           <h1 class="text-2xl font-semibold">JSON Forms Storybook</h1>
           <p class="text-sm text-zinc-600">
-            Examples from <a href="https://jsonforms.io/examples" class="underline text-blue-600" target="_blank">jsonforms.io/examples</a>
+            Examples from
+            <a href="https://jsonforms.io/examples" class="underline text-blue-600" target="_blank">
+              jsonforms.io/examples
+            </a>
           </p>
-          <p id="storybook-scenario" class="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <p
+            id="storybook-scenario"
+            class="text-xs font-semibold uppercase tracking-wide text-zinc-500"
+          >
             Scenario: {@scenario}
           </p>
         </div>
@@ -174,28 +180,43 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div class="space-y-2">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">Data</h2>
-            <pre id="debug-data" class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64">{Jason.encode!(@data, pretty: true)}</pre>
+            <pre
+              id="debug-data"
+              class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64"
+            >{Jason.encode!(@data, pretty: true)}</pre>
           </div>
 
           <div class="space-y-2">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">Errors</h2>
-            <pre id="debug-errors" class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64">{Jason.encode!(Enum.map(@state.errors, &Map.from_struct/1), pretty: true)}</pre>
+            <pre
+              id="debug-errors"
+              class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64"
+            >{Jason.encode!(Enum.map(@state.errors, &Map.from_struct/1), pretty: true)}</pre>
           </div>
 
           <div class="space-y-2">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">Schema</h2>
-            <pre id="debug-schema" class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64">{Jason.encode!(@schema, pretty: true)}</pre>
+            <pre
+              id="debug-schema"
+              class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64"
+            >{Jason.encode!(@schema, pretty: true)}</pre>
           </div>
 
           <div class="space-y-2">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">UISchema</h2>
-            <pre id="debug-uischema" class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64">{Jason.encode!(@uischema, pretty: true)}</pre>
+            <pre
+              id="debug-uischema"
+              class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64"
+            >{Jason.encode!(@uischema, pretty: true)}</pre>
           </div>
         </div>
 
         <div class="space-y-2">
           <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">Rules State</h2>
-          <pre id="debug-rules" class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64">{Jason.encode!(@state.rule_state, pretty: true)}</pre>
+          <pre
+            id="debug-rules"
+            class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64"
+          >{Jason.encode!(@state.rule_state, pretty: true)}</pre>
         </div>
       </section>
     </Layouts.app>
@@ -441,7 +462,10 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
                 "type" => "HorizontalLayout",
                 "elements" => [
                   %{"type" => "Control", "scope" => "#/properties/address/properties/street"},
-                  %{"type" => "Control", "scope" => "#/properties/address/properties/streetNumber"}
+                  %{
+                    "type" => "Control",
+                    "scope" => "#/properties/address/properties/streetNumber"
+                  }
                 ]
               },
               %{
@@ -464,7 +488,10 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
             "type" => "Category",
             "label" => "Additional",
             "elements" => [
-              %{"type" => "Control", "scope" => "#/properties/vegetarianOptions/properties/vegan"},
+              %{
+                "type" => "Control",
+                "scope" => "#/properties/vegetarianOptions/properties/vegan"
+              },
               %{
                 "type" => "Control",
                 "scope" => "#/properties/vegetarianOptions/properties/favoriteVegetable"
@@ -548,14 +575,22 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
                 "type" => "VerticalLayout",
                 "elements" => [
                   %{"type" => "Control", "label" => "Name", "scope" => "#/properties/name"},
-                  %{"type" => "Control", "label" => "Birth Date", "scope" => "#/properties/birthDate"}
+                  %{
+                    "type" => "Control",
+                    "label" => "Birth Date",
+                    "scope" => "#/properties/birthDate"
+                  }
                 ]
               },
               %{
                 "type" => "VerticalLayout",
                 "elements" => [
                   %{"type" => "Control", "label" => "Name", "scope" => "#/properties/name"},
-                  %{"type" => "Control", "label" => "Birth Date", "scope" => "#/properties/birthDate"}
+                  %{
+                    "type" => "Control",
+                    "label" => "Birth Date",
+                    "scope" => "#/properties/birthDate"
+                  }
                 ]
               }
             ]
@@ -839,7 +874,11 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
                     "scope" => "#/properties/firstname",
                     "label" => "First Name"
                   },
-                  %{"type" => "Control", "scope" => "#/properties/lastname", "label" => "Last Name"}
+                  %{
+                    "type" => "Control",
+                    "scope" => "#/properties/lastname",
+                    "label" => "Last Name"
+                  }
                 ]
               },
               %{"type" => "Control", "scope" => "#/properties/age", "label" => "Age"},

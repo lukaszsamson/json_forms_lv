@@ -46,7 +46,7 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
       disabled={@disabled?}
       role={@role}
       aria-checked={@aria_checked}
-      data-jf-toggle={@toggle?}
+      data-jf-toggle={if @toggle?, do: "true"}
       lang={@locale}
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}

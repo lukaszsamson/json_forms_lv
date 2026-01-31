@@ -347,7 +347,17 @@ defmodule JsonFormsLV.Engine do
   """
   @spec validate(State.t()) :: {:ok, State.t()}
   def validate(%State{} = state) do
-    {:ok, validate_state(state, :all, true)}
+    validation_mode = state.validation_mode
+
+    state =
+      if validation_mode == :no_validation do
+        %State{state | validation_mode: :validate_and_show}
+      else
+        state
+      end
+
+    state = validate_state(state, :all, true)
+    {:ok, %State{state | validation_mode: validation_mode}}
   end
 
   @doc """
@@ -503,6 +513,21 @@ defmodule JsonFormsLV.Engine do
       }
 
       {:ok, validate_state(state, :all, true)}
+    end
+  end
+
+  @doc """
+  Apply external data updates and revalidate.
+  """
+  @spec apply_external_data(State.t(), term(), [String.t()] | :all | nil) ::
+          {:ok, State.t()} | {:error, term()}
+  def apply_external_data(%State{} = state, data, changed_paths \\ :all) do
+    with :ok <- ensure_data_size(data, state.opts) do
+      paths = normalize_changed_paths(changed_paths)
+      raw_inputs = prune_raw_inputs(state.raw_inputs || %{}, paths)
+      state = %State{state | data: data, raw_inputs: raw_inputs}
+      state = init_array_ids(state)
+      {:ok, validate_state(state, paths, true)}
     end
   end
 
@@ -663,6 +688,17 @@ defmodule JsonFormsLV.Engine do
       end
     end)
     |> then(fn {data, cleared} -> {data, Enum.reverse(cleared)} end)
+  end
+
+  defp normalize_changed_paths(nil), do: :all
+  defp normalize_changed_paths(:all), do: :all
+  defp normalize_changed_paths(paths) when is_list(paths), do: paths
+  defp normalize_changed_paths(_), do: :all
+
+  defp prune_raw_inputs(_raw_inputs, :all), do: %{}
+
+  defp prune_raw_inputs(raw_inputs, paths) when is_list(paths) do
+    Enum.reduce(paths, raw_inputs, fn path, acc -> Map.delete(acc, path) end)
   end
 
   defp put_coerced_value(data, path, value, schema, raw_value) do

@@ -338,8 +338,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ListWithDetail do
 
       %{"elements" => elements} when is_list(elements) ->
         elements
-        |> Enum.flat_map(&detail_control_path/1)
-        |> Enum.uniq()
+        |> detail_control_paths()
         |> case do
           [] -> default_property_paths(schema)
           paths -> paths
@@ -350,9 +349,19 @@ defmodule JsonFormsLV.Phoenix.Renderers.ListWithDetail do
     end
   end
 
+  defp detail_control_paths(elements) do
+    elements
+    |> Enum.flat_map(&detail_control_path/1)
+    |> Enum.uniq()
+  end
+
   defp detail_control_path(%{"type" => "Control", "scope" => scope}) when is_binary(scope) do
     path = Path.schema_pointer_to_data_path(scope)
     if path == "", do: [], else: [path]
+  end
+
+  defp detail_control_path(%{"elements" => elements}) when is_list(elements) do
+    detail_control_paths(elements)
   end
 
   defp detail_control_path(_), do: []

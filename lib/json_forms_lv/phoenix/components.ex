@@ -240,7 +240,12 @@ defmodule JsonFormsLV.Phoenix.Components do
     value = if write_only?(schema, state), do: nil, else: value
 
     rule_flags = Map.get(state.rule_state || %{}, render_key, %{visible?: true, enabled?: true})
-    visible? = assigns.parent_visible? && Map.get(rule_flags, :visible?, true)
+    has_scope? = match?(%{"scope" => scope} when is_binary(scope), assigns.uischema)
+    schema_missing? = has_scope? and is_nil(schema)
+
+    visible? =
+      assigns.parent_visible? && Map.get(rule_flags, :visible?, true) && not schema_missing?
+
     enabled? = assigns.parent_enabled? && Map.get(rule_flags, :enabled?, true)
 
     options =
@@ -347,7 +352,7 @@ defmodule JsonFormsLV.Phoenix.Components do
 
   defp resolve_path_and_schema(assigns, %State{} = state) do
     case assigns.uischema do
-      %{"type" => "Control", "scope" => scope} when is_binary(scope) ->
+      %{"scope" => scope} when is_binary(scope) ->
         path = Path.schema_pointer_to_data_path(scope)
 
         schema =

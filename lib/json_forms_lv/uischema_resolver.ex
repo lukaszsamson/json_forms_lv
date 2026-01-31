@@ -6,7 +6,9 @@ defmodule JsonFormsLV.UISchemaResolver do
   """
 
   @spec resolve(map(), map() | keyword()) :: {:ok, map()} | {:error, term()}
-  def resolve(uischema, opts \\ %{}) when is_map(uischema) do
+  def resolve(uischema, opts \\ %{})
+
+  def resolve(uischema, opts) when is_map(uischema) do
     opts = normalize_opts(opts)
     loader = ref_loader(opts)
     root_base = resolve_id(Map.get(uischema, "$id"), nil)

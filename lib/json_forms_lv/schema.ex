@@ -124,7 +124,7 @@ defmodule JsonFormsLV.Schema do
   end
 
   defp do_resolve_at_path(
-         %{"items" => items} = current,
+         %{"items" => _items} = current,
          [segment | rest],
          data_path,
          data,

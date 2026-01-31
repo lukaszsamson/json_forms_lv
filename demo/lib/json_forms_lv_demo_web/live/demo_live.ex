@@ -1,7 +1,7 @@
 defmodule JsonFormsLvDemoWeb.DemoLive do
   use JsonFormsLvDemoWeb, :live_view
 
-  alias JsonFormsLV.{Engine, Event}
+  alias JsonFormsLV.{Engine, Event, FormGroup}
   alias JsonFormsLV.Phoenix.StreamSync
 
   import JsonFormsLV.Phoenix.Components, only: [json_forms: 1]
@@ -16,14 +16,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
 
     {:ok, state} = maybe_set_additional_errors(state, config.additional_errors)
 
+    display_state = if config.form_group_a, do: config.form_group_a, else: state
+    display_data = if config.form_group, do: config.form_group.data, else: state.data
+
     socket =
       socket
       |> assign(:scenario, "basic")
-      |> assign(:schema, config.schema)
-      |> assign(:uischema, config.uischema)
-      |> assign(:state, state)
-      |> assign(:data, state.data)
+      |> assign(:schema, display_state.schema)
+      |> assign(:uischema, display_state.uischema)
+      |> assign(:state, display_state)
+      |> assign(:data, display_data)
       |> assign(:form, to_form(%{}, as: :jf))
+      |> assign(:form_a, to_form(%{}, as: :jf_a))
+      |> assign(:form_b, to_form(%{}, as: :jf_b))
       |> assign(:current_scope, nil)
       |> assign(:readonly, config.readonly)
       |> assign(:locale, config.locale)
@@ -33,6 +38,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       |> assign(:json_forms_cells, config.json_forms_cells)
       |> assign(:json_forms_renderers, config.json_forms_renderers)
       |> assign(:additional_errors, config.additional_errors)
+      |> assign(:form_group, config.form_group)
+      |> assign(:form_group_a, config.form_group_a)
+      |> assign(:form_group_b, config.form_group_b)
 
     socket = maybe_sync_array_streams(socket, nil, state, config)
 
@@ -84,15 +92,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       {:ok, state} ->
         {:ok, state} = maybe_set_additional_errors(state, config.additional_errors)
         old_state = socket.assigns[:state]
+        display_state = if config.form_group_a, do: config.form_group_a, else: state
+        display_data = if config.form_group, do: config.form_group.data, else: state.data
 
         socket =
           socket
           |> assign(:scenario, scenario)
-          |> assign(:schema, config.schema)
-          |> assign(:uischema, config.uischema)
-          |> assign(:state, state)
-          |> assign(:data, state.data)
+          |> assign(:schema, display_state.schema)
+          |> assign(:uischema, display_state.uischema)
+          |> assign(:state, display_state)
+          |> assign(:data, display_data)
           |> assign(:form, to_form(%{}, as: :jf))
+          |> assign(:form_a, to_form(%{}, as: :jf_a))
+          |> assign(:form_b, to_form(%{}, as: :jf_b))
           |> assign(:readonly, config.readonly)
           |> assign(:locale, config.locale)
           |> assign(:i18n, config.i18n)
@@ -101,6 +113,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           |> assign(:json_forms_cells, config.json_forms_cells)
           |> assign(:json_forms_renderers, config.json_forms_renderers)
           |> assign(:additional_errors, config.additional_errors)
+          |> assign(:form_group, config.form_group)
+          |> assign(:form_group_a, config.form_group_a)
+          |> assign(:form_group_b, config.form_group_b)
 
         socket = maybe_sync_array_streams(socket, old_state, state, config)
 
@@ -108,6 +123,28 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
 
       {:error, _reason} ->
         {:noreply, socket}
+    end
+  end
+
+  def handle_event("form_group_change", %{"form" => form} = params, socket) do
+    form_id = form_group_id(form)
+    form_key = if form_id == :a, do: "jf_a", else: "jf_b"
+
+    with %FormGroup{} = group <- socket.assigns.form_group,
+         {:ok, %{path: path, value: value, meta: meta}} <-
+           Event.extract_change(params, form_key: form_key),
+         {:ok, group} <- FormGroup.dispatch(group, form_id, {:update_data, path, value, meta}) do
+      socket =
+        socket
+        |> assign(:form_group, group)
+        |> assign(:form_group_a, FormGroup.state(group, :a))
+        |> assign(:form_group_b, FormGroup.state(group, :b))
+        |> assign(:state, FormGroup.state(group, :a))
+        |> assign(:data, group.data)
+
+      {:noreply, socket}
+    else
+      _ -> {:noreply, socket}
     end
   end
 
@@ -346,6 +383,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               ]}
             >
               Combinators
+            </button>
+            <button
+              id="scenario-interlinked"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="interlinked"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "interlinked" && "bg-zinc-900 text-white",
+                @scenario != "interlinked" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Interlinked
             </button>
             <button
               id="scenario-categorization"
@@ -616,32 +666,89 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
             </p>
           <% end %>
 
-          <.form for={@form} id="demo-json-forms-form" phx-change="jf:change" phx-submit="jf:submit">
-            <.json_forms
-              id="demo-json-forms"
-              schema={@schema}
-              uischema={@uischema}
-              data={@data}
-              state={@state}
-              readonly={@readonly}
-              i18n={@i18n}
-              validation_mode={@validation_mode}
-              binding={:form_level}
-              renderers={@json_forms_renderers}
-              cells={@json_forms_cells}
-              opts={@json_forms_opts}
-              streams={assigns[:streams]}
-              wrap_form={false}
-            />
+          <%= if @scenario == "interlinked" and @form_group do %>
+            <div id="demo-interlinked" class="grid gap-6 md:grid-cols-2">
+              <div class="space-y-3 rounded-lg border border-zinc-200 p-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-600">Form A</h3>
+                <.form
+                  for={@form_a}
+                  id="demo-interlinked-form-a"
+                  phx-change="form_group_change"
+                  phx-value-form="a"
+                >
+                  <.json_forms
+                    id="demo-interlinked-json-forms-a"
+                    schema={@form_group_a.schema}
+                    uischema={@form_group_a.uischema}
+                    data={@form_group_a.data}
+                    state={@form_group_a}
+                    readonly={@readonly}
+                    i18n={@i18n}
+                    validation_mode={@validation_mode}
+                    binding={:form_level}
+                    renderers={@json_forms_renderers}
+                    cells={@json_forms_cells}
+                    opts={@json_forms_opts}
+                    streams={assigns[:streams]}
+                    wrap_form={false}
+                  />
+                </.form>
+              </div>
+              <div class="space-y-3 rounded-lg border border-zinc-200 p-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-600">Form B</h3>
+                <.form
+                  for={@form_b}
+                  id="demo-interlinked-form-b"
+                  phx-change="form_group_change"
+                  phx-value-form="b"
+                >
+                  <.json_forms
+                    id="demo-interlinked-json-forms-b"
+                    schema={@form_group_b.schema}
+                    uischema={@form_group_b.uischema}
+                    data={@form_group_b.data}
+                    state={@form_group_b}
+                    readonly={@readonly}
+                    i18n={@i18n}
+                    validation_mode={@validation_mode}
+                    binding={:form_level}
+                    renderers={@json_forms_renderers}
+                    cells={@json_forms_cells}
+                    opts={@json_forms_opts}
+                    streams={assigns[:streams]}
+                    wrap_form={false}
+                  />
+                </.form>
+              </div>
+            </div>
+          <% else %>
+            <.form for={@form} id="demo-json-forms-form" phx-change="jf:change" phx-submit="jf:submit">
+              <.json_forms
+                id="demo-json-forms"
+                schema={@schema}
+                uischema={@uischema}
+                data={@data}
+                state={@state}
+                readonly={@readonly}
+                i18n={@i18n}
+                validation_mode={@validation_mode}
+                binding={:form_level}
+                renderers={@json_forms_renderers}
+                cells={@json_forms_cells}
+                opts={@json_forms_opts}
+                streams={assigns[:streams]}
+                wrap_form={false}
+              />
 
-            <button
-              id="demo-json-forms-submit"
-              type="submit"
-              class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white"
-            >
-              Submit
-            </button>
-          </.form>
+              <button
+                id="demo-json-forms-submit"
+                type="submit"
+                class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Submit
+              </button>
+            </.form>
+          <% end %>
         </div>
 
         <div id="demo-live-component" class="space-y-3 rounded-lg border border-zinc-200 p-4">
@@ -1241,6 +1348,41 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp interlinked_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "name" => %{"type" => "string", "title" => "Name"},
+        "status" => %{
+          "type" => "string",
+          "title" => "Status",
+          "enum" => ["active", "paused", "closed"]
+        },
+        "note" => %{"type" => "string", "title" => "Note"}
+      }
+    }
+  end
+
+  defp interlinked_uischema_a do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{"type" => "Control", "scope" => "#/properties/name"},
+        %{"type" => "Control", "scope" => "#/properties/status"}
+      ]
+    }
+  end
+
+  defp interlinked_uischema_b do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{"type" => "Control", "scope" => "#/properties/status"},
+        %{"type" => "Control", "scope" => "#/properties/note"}
+      ]
+    }
+  end
+
   defp live_component_schema do
     %{
       "type" => "object",
@@ -1803,6 +1945,26 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     })
   end
 
+  defp scenario_config("interlinked") do
+    schema = interlinked_schema()
+    data = %{"name" => "Ada", "status" => "active", "note" => "Synced note"}
+
+    {:ok, group} =
+      FormGroup.init([
+        %{id: :a, schema: schema, uischema: interlinked_uischema_a(), data: data},
+        %{id: :b, schema: schema, uischema: interlinked_uischema_b(), data: data}
+      ])
+
+    base_config(%{
+      schema: schema,
+      uischema: interlinked_uischema_a(),
+      data: group.data,
+      form_group: group,
+      form_group_a: FormGroup.state(group, :a),
+      form_group_b: FormGroup.state(group, :b)
+    })
+  end
+
   defp scenario_config("categorization") do
     base_config(%{
       schema: categorization_schema(),
@@ -1990,6 +2152,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         i18n: %{},
         validation_mode: :validate_and_show,
         additional_errors: [],
+        form_group: nil,
+        form_group_a: nil,
+        form_group_b: nil,
         json_forms_opts: %{},
         json_forms_cells: [],
         json_forms_renderers: []
@@ -2003,6 +2168,10 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   end
 
   defp maybe_set_additional_errors(state, _errors), do: {:ok, state}
+
+  defp form_group_id("a"), do: :a
+  defp form_group_id("b"), do: :b
+  defp form_group_id(_), do: :a
 
   defp demo_i18n(locale) do
     %{

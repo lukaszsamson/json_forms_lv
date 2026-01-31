@@ -53,6 +53,7 @@ defmodule JsonFormsLV.MixProject do
           JsonFormsLV.UISchema,
           JsonFormsLV.UISchemaResolver,
           JsonFormsLV.DynamicEnums,
+          JsonFormsLV.FormGroup,
           JsonFormsLV.Coercion
         ],
         Validation: [JsonFormsLV.Validator, JsonFormsLV.Errors],

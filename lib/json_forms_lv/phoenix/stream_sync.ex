@@ -38,8 +38,9 @@ defmodule JsonFormsLV.Phoenix.StreamSync do
           new_dom_ids = Enum.map(new_ids, &dom_id_fun.(path, &1))
 
           entries = build_entries(path, new_ids, dom_id_fun)
+          stream_defined? = stream_defined?(socket, name)
 
-          if match?(%State{}, old_state) do
+          if match?(%State{}, old_state) and stream_defined? do
             removed = old_dom_ids -- new_dom_ids
 
             socket =
@@ -81,6 +82,13 @@ defmodule JsonFormsLV.Phoenix.StreamSync do
   end
 
   defp array_ids(_state, _path, items), do: index_ids(items)
+
+  defp stream_defined?(socket, name) do
+    case socket.assigns do
+      %{streams: streams} when is_map(streams) -> Map.has_key?(streams, name)
+      _ -> false
+    end
+  end
 
   defp index_ids([]), do: []
 

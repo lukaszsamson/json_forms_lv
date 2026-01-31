@@ -191,7 +191,7 @@ at init time. Provide an `enum_loader` option (or rely on the default Req loader
 ```elixir
 {:ok, state} =
   JsonFormsLV.Engine.init(schema, uischema, data, %{
-    enum_loader: fn url, _cache -> {:ok, ["open", "closed"]} end,
+    enum_loader: fn url, _opts -> {:ok, ["open", "closed"]} end,
     enum_base_url: "https://example.com"
   })
 ```
@@ -234,6 +234,23 @@ def handle_async(:schema, {:ok, %{schema: schema, uischema: uischema}}, socket) 
   {:ok, state} = JsonFormsLV.Engine.init(schema, uischema, %{}, %{})
   {:noreply, assign(socket, state: state, schema: schema, uischema: uischema)}
 end
+```
+
+### Interlinked forms
+
+`JsonFormsLV.FormGroup` coordinates multiple form states with shared data:
+
+```elixir
+{:ok, group} =
+  JsonFormsLV.FormGroup.init([
+    %{id: :a, schema: schema_a, uischema: uischema_a},
+    %{id: :b, schema: schema_b, uischema: uischema_b}
+  ])
+
+{:ok, group} = JsonFormsLV.FormGroup.dispatch(group, :a, {:update_data, "name", "Ada", %{}})
+
+state_a = JsonFormsLV.FormGroup.state(group, :a)
+state_b = JsonFormsLV.FormGroup.state(group, :b)
 ```
 
 ### writeOnly handling

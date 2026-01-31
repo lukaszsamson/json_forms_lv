@@ -85,7 +85,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumRadio do
 
   defp enum_status(assigns) do
     status_map = Map.get(assigns.ctx || %{}, :dynamic_enums_status) || %{}
-    DynamicEnums.status_for(assigns.schema || %{}, assigns.config || %{}, status_map)
+    DynamicEnums.status_for(assigns.schema || %{}, Map.get(assigns, :config, %{}), status_map)
   end
 
   defp status_value(:ok), do: "ok"

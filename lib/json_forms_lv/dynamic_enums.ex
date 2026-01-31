@@ -1,5 +1,4 @@
 defmodule JsonFormsLV.DynamicEnums do
-defmodule JsonFormsLV.DynamicEnums do
   @moduledoc """
   Resolve dynamic enums defined via `x-url` or `x-endpoint` in JSON Schema.
 
@@ -7,15 +6,21 @@ defmodule JsonFormsLV.DynamicEnums do
   """
 
   @spec resolve(map(), map() | keyword()) :: {:ok, map()} | {:error, term()}
-  def resolve(schema, opts \\ %{}) when is_map(schema) do
+  def resolve(schema, opts \\ %{})
+
+  def resolve(schema, opts) when is_map(schema) do
     case resolve_with_status(schema, opts) do
       {:ok, resolved, _status} -> {:ok, resolved}
       {:error, _} = error -> error
     end
   end
 
+  def resolve(_schema, _opts), do: {:error, {:invalid_schema, :expected_map}}
+
   @spec resolve_with_status(map(), map() | keyword()) :: {:ok, map(), map()} | {:error, term()}
-  def resolve_with_status(schema, opts \\ %{}) when is_map(schema) do
+  def resolve_with_status(schema, opts \\ %{})
+
+  def resolve_with_status(schema, opts) when is_map(schema) do
     opts = normalize_opts(opts)
     loader = enum_loader(opts)
     base_url = enum_base_url(schema, opts)
@@ -27,8 +32,6 @@ defmodule JsonFormsLV.DynamicEnums do
   end
 
   def resolve_with_status(_schema, _opts), do: {:error, {:invalid_schema, :expected_map}}
-
-  def resolve(_schema, _opts), do: {:error, {:invalid_schema, :expected_map}}
 
   @spec status_for(map(), map() | keyword(), map()) :: term()
   def status_for(schema, opts, status_map) when is_map(schema) and is_map(status_map) do

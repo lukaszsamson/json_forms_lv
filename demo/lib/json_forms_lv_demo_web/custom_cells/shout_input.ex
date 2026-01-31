@@ -40,13 +40,13 @@ defmodule JsonFormsLvDemoWeb.CustomCells.ShoutInput do
       <input
         id={@id}
         name={@path}
-      type="text"
-      value={@value}
-      data-custom-cell="shout"
-      disabled={@disabled?}
-      aria-describedby={@aria_describedby}
-      aria-invalid={@aria_invalid}
-      phx-change={@change_event}
+        type="text"
+        value={@value}
+        data-custom-cell="shout"
+        disabled={@disabled?}
+        aria-describedby={@aria_describedby}
+        aria-invalid={@aria_invalid}
+        phx-change={@change_event}
         phx-blur={@on_blur}
         phx-target={@target}
       />

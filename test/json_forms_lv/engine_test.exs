@@ -152,13 +152,13 @@ defmodule JsonFormsLV.EngineTest do
   end
 
   test "dispatch applies middleware chain" do
-    middleware_a = fn state, action, next ->
+    middleware_a = fn %State{} = state, action, next ->
       order = Map.get(state.data || %{}, "order", [])
       state = %State{state | data: Map.put(state.data || %{}, "order", order ++ ["a"])}
       next.(state, action)
     end
 
-    middleware_b = fn state, action, next ->
+    middleware_b = fn %State{} = state, action, next ->
       order = Map.get(state.data || %{}, "order", [])
       state = %State{state | data: Map.put(state.data || %{}, "order", order ++ ["b"])}
       next.(state, action)

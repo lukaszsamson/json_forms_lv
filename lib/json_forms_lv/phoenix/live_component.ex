@@ -150,10 +150,8 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
   def handle_event("jf:select_combinator", %{"path" => path} = params, socket) do
     selection = Map.get(params, "selection") || Map.get(params, "value")
 
-    case Engine.set_combinator(socket.assigns.state, path, selection) do
-      {:ok, state} -> {:noreply, assign(socket, :state, state)}
-      {:error, _reason} -> {:noreply, socket}
-    end
+    {:ok, state} = Engine.set_combinator(socket.assigns.state, path, selection)
+    {:noreply, assign(socket, :state, state)}
   end
 
   def handle_event("jf:refresh_enums", params, socket) do

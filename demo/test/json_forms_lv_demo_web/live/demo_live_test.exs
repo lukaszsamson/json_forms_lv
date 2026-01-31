@@ -208,6 +208,24 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, ".jf-combinator")
   end
 
+  test "interlinked scenario syncs data across forms", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "interlinked"})
+
+    assert has_element?(view, "#demo-scenario", "interlinked")
+    assert has_element?(view, "#demo-interlinked-form-a")
+    assert has_element?(view, "#demo-interlinked-form-b")
+
+    render_change(view, "form_group_change", %{
+      "form" => "a",
+      "_target" => ["jf_a", "status"],
+      "jf_a" => %{"status" => "closed"}
+    })
+
+    assert has_element?(view, "#debug-data", "\"status\": \"closed\"")
+  end
+
   test "formats scenario preserves date values across changes", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 
