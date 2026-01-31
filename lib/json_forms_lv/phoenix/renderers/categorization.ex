@@ -94,15 +94,24 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
   end
 
   defp category_label(category, index, i18n, ctx) do
-    label = Map.get(category, "label")
+    {label, show_label?} = resolve_label(category)
     label = I18n.translate_label(label, i18n, ctx)
 
-    if is_binary(label) and label != "" do
-      label
-    else
-      "Category #{index + 1}"
+    cond do
+      not show_label? -> nil
+      is_binary(label) and label != "" -> label
+      true -> "Category #{index + 1}"
     end
   end
+
+  defp resolve_label(%{"label" => false}), do: {nil, false}
+  defp resolve_label(%{"label" => %{"show" => false}}), do: {nil, false}
+
+  defp resolve_label(%{"label" => %{"show" => true, "text" => text}}) when is_binary(text),
+    do: {text, true}
+
+  defp resolve_label(%{"label" => label}) when is_binary(label), do: {label, true}
+  defp resolve_label(_), do: {nil, true}
 
   defp tab_id(base_id, index), do: "#{base_id}-tab-#{index}"
   defp panel_id(base_id, index), do: "#{base_id}-panel-#{index}"

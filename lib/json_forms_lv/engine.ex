@@ -3,7 +3,18 @@ defmodule JsonFormsLV.Engine do
   Pure core engine functions.
   """
 
-  alias JsonFormsLV.{Coercion, Data, Errors, Limits, Path, Rules, Schema, State}
+  alias JsonFormsLV.{
+    Coercion,
+    Data,
+    Errors,
+    Limits,
+    Path,
+    Rules,
+    Schema,
+    State,
+    UISchema,
+    UISchemaResolver
+  }
 
   @doc """
   Initialize a state from schema, uischema, and data.
@@ -16,7 +27,7 @@ defmodule JsonFormsLV.Engine do
       not is_map(schema) ->
         {:error, {:invalid_schema, :expected_map}}
 
-      not is_map(uischema) ->
+      not is_map(uischema) and not is_nil(uischema) ->
         {:error, {:invalid_uischema, :expected_map}}
 
       true ->
@@ -27,6 +38,9 @@ defmodule JsonFormsLV.Engine do
         resolver =
           Map.get(opts_with_limits, :schema_resolver, JsonFormsLV.SchemaResolvers.Default)
 
+        uischema_resolver =
+          Map.get(opts_with_limits, :uischema_resolver, UISchemaResolver)
+
         validator = Map.get(opts_with_limits, :validator, JsonFormsLV.Validators.JSV)
         validator_opts = Map.get(opts_with_limits, :validator_opts, [])
 
@@ -34,22 +48,26 @@ defmodule JsonFormsLV.Engine do
              {:ok, compiled} <- validator.compile(resolved_schema, validator_opts),
              data <- maybe_apply_defaults(data, resolved_schema, opts_with_limits),
              :ok <- ensure_data_size(data, opts_with_limits) do
-          state = %State{
-            schema: resolved_schema,
-            uischema: uischema,
-            data: data,
-            opts: opts_with_limits,
-            validation_mode: validation_mode,
-            validator: %{module: validator, compiled: compiled},
-            validator_opts: validator_opts
-          }
+          uischema = if uischema == nil, do: UISchema.default(resolved_schema), else: uischema
 
-          state = init_array_ids(state)
-          state = validate_state(state, :all, true)
+          with {:ok, uischema} <- uischema_resolver.resolve(uischema, opts_with_limits) do
+            state = %State{
+              schema: resolved_schema,
+              uischema: uischema,
+              data: data,
+              opts: opts_with_limits,
+              validation_mode: validation_mode,
+              validator: %{module: validator, compiled: compiled},
+              validator_opts: validator_opts
+            }
 
-          emit_telemetry(:init, started_at, %{validation_mode: state.validation_mode})
+            state = init_array_ids(state)
+            state = validate_state(state, :all, true)
 
-          {:ok, state}
+            emit_telemetry(:init, started_at, %{validation_mode: state.validation_mode})
+
+            {:ok, state}
+          end
         end
     end
   end

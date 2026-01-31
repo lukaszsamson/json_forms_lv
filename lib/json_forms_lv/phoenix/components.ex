@@ -189,6 +189,7 @@ defmodule JsonFormsLV.Phoenix.Components do
         JsonFormsLV.Phoenix.Cells.EnumRadio,
         JsonFormsLV.Phoenix.Cells.EnumSelect,
         JsonFormsLV.Phoenix.Cells.DateInput,
+        JsonFormsLV.Phoenix.Cells.TimeInput,
         JsonFormsLV.Phoenix.Cells.DateTimeInput,
         JsonFormsLV.Phoenix.Cells.MultilineInput,
         JsonFormsLV.Phoenix.Cells.BooleanInput,

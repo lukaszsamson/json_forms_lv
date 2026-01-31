@@ -49,6 +49,8 @@ defmodule JsonFormsLV.MixProject do
           JsonFormsLV.Path,
           JsonFormsLV.Schema,
           JsonFormsLV.Rules,
+          JsonFormsLV.UISchema,
+          JsonFormsLV.UISchemaResolver,
           JsonFormsLV.Coercion
         ],
         Validation: [JsonFormsLV.Validator, JsonFormsLV.Errors],

@@ -8,7 +8,9 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
     DateTimeInput,
     EnumRadio,
     EnumSelect,
-    MultilineInput
+    MultilineInput,
+    StringInput,
+    TimeInput
   }
 
   defp base_assigns(overrides) do
@@ -65,6 +67,19 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
     assert html =~ ~s/value="2025-01-01T10:00"/
   end
 
+  test "time input renders time type" do
+    assigns =
+      base_assigns(%{
+        schema: %{"type" => "string", "format" => "time"},
+        data: %{"field" => "09:30"}
+      })
+
+    html = render_component(&TimeInput.render/1, assigns)
+
+    assert html =~ ~s/type="time"/
+    assert html =~ ~s/value="09:30"/
+  end
+
   test "enum select renders options" do
     schema = %{"type" => "string", "enum" => ["alpha", "beta"]}
 
@@ -105,5 +120,57 @@ defmodule JsonFormsLV.Phoenix.CellsTest do
 
     assert html =~ "<textarea"
     assert html =~ "Line 1"
+  end
+
+  test "string input uses placeholder" do
+    assigns = base_assigns(%{options: %{"placeholder" => "Enter name"}})
+
+    html = render_component(&StringInput.render/1, assigns)
+
+    assert html =~ ~s/placeholder="Enter name"/
+  end
+
+  test "string input renders suggestion datalist" do
+    assigns =
+      base_assigns(%{
+        options: %{"suggestion" => ["Alpha", "Beta"]}
+      })
+
+    html = render_component(&StringInput.render/1, assigns)
+
+    assert html =~ "<datalist"
+    assert html =~ ~s/option value="Alpha"/
+    assert html =~ ~s/option value="Beta"/
+  end
+
+  test "enum select renders autocomplete datalist" do
+    schema = %{"type" => "string", "enum" => ["alpha", "beta"]}
+
+    assigns =
+      base_assigns(%{
+        schema: schema,
+        root_schema: %{"type" => "object", "properties" => %{"field" => schema}},
+        options: %{"autocomplete" => true}
+      })
+
+    html = render_component(&EnumSelect.render/1, assigns)
+
+    assert html =~ "<datalist"
+    assert html =~ ~s/type="text"/
+    assert html =~ ~s/option value="alpha"/
+    assert html =~ ~s/option value="beta"/
+  end
+
+  test "time input uses placeholder" do
+    assigns =
+      base_assigns(%{
+        schema: %{"type" => "string", "format" => "time"},
+        data: %{"field" => "09:30"},
+        options: %{"placeholder" => "Pick a time"}
+      })
+
+    html = render_component(&TimeInput.render/1, assigns)
+
+    assert html =~ ~s/placeholder="Pick a time"/
   end
 end

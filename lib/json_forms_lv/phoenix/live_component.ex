@@ -10,7 +10,8 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
 
   import JsonFormsLV.Phoenix.Components, only: [json_forms: 1]
 
-  alias JsonFormsLV.{Data, Engine, Event, Limits, State}
+  alias JsonFormsLV.{Engine, Event, Limits, State}
+  alias JsonFormsLV.Phoenix.StreamSync
 
   @impl true
   def update(assigns, socket) do
@@ -83,7 +84,8 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
       |> assign(:state, state)
       |> assign(:data, state.data)
 
-    socket = maybe_sync_array_streams(socket, state, assigns[:opts])
+    old_state = previous[:state]
+    socket = maybe_sync_array_streams(socket, old_state, state, assigns[:opts])
 
     {:ok, socket}
   end
@@ -96,10 +98,12 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
       {:ok, %{path: path, value: value, meta: meta}} ->
         case Engine.update_data(socket.assigns.state, path, value, meta) do
           {:ok, state} ->
+            old_state = socket.assigns.state
+
             socket =
               socket
               |> assign(state: state, data: state.data)
-              |> maybe_sync_array_streams(state, socket.assigns[:opts])
+              |> maybe_sync_array_streams(old_state, state, socket.assigns[:opts])
 
             notify_change(notify, state)
             {:noreply, socket}
@@ -149,10 +153,12 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
 
     case Engine.add_item(socket.assigns.state, path, opts) do
       {:ok, state} ->
+        old_state = socket.assigns.state
+
         socket =
           socket
           |> assign(state: state, data: state.data)
-          |> maybe_sync_array_streams(state, socket.assigns[:opts])
+          |> maybe_sync_array_streams(old_state, state, socket.assigns[:opts])
 
         notify_change(notify, state)
         {:noreply, socket}
@@ -168,10 +174,12 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
 
     case Engine.remove_item(socket.assigns.state, path, index) do
       {:ok, state} ->
+        old_state = socket.assigns.state
+
         socket =
           socket
           |> assign(state: state, data: state.data)
-          |> maybe_sync_array_streams(state, socket.assigns[:opts])
+          |> maybe_sync_array_streams(old_state, state, socket.assigns[:opts])
 
         notify_change(notify, state)
         {:noreply, socket}
@@ -188,10 +196,12 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
 
     case Engine.move_item(socket.assigns.state, path, from, to) do
       {:ok, state} ->
+        old_state = socket.assigns.state
+
         socket =
           socket
           |> assign(state: state, data: state.data)
-          |> maybe_sync_array_streams(state, socket.assigns[:opts])
+          |> maybe_sync_array_streams(old_state, state, socket.assigns[:opts])
 
         notify_change(notify, state)
         {:noreply, socket}
@@ -271,52 +281,10 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
     end
   end
 
-  defp maybe_sync_array_streams(socket, state, opts) do
+  defp maybe_sync_array_streams(socket, old_state, new_state, opts) do
     opts = opts || %{}
-
-    stream_arrays? =
-      Map.get(opts, :stream_arrays) == true or Map.get(opts, "stream_arrays") == true
-
-    stream_names = Map.get(opts, :stream_names) || Map.get(opts, "stream_names") || %{}
-
-    if stream_arrays? && is_map(stream_names) && map_size(stream_names) > 0 do
-      Enum.reduce(stream_names, socket, fn {path, name}, socket ->
-        items = array_stream_items(state, path, socket.assigns[:id])
-        Phoenix.LiveView.stream(socket, name, items, reset: true)
-      end)
-    else
-      socket
-    end
-  end
-
-  defp array_stream_items(state, path, form_id) do
-    items =
-      case Data.get(state.data, path) do
-        {:ok, list} when is_list(list) -> list
-        _ -> []
-      end
-
-    ids = Map.get(state.array_ids || %{}, path, [])
-
-    Enum.with_index(items)
-    |> Enum.map(fn {_item, index} ->
-      item_id = Enum.at(ids, index) || Integer.to_string(index)
-
-      %{
-        id: stream_dom_id(form_id || "json-forms", path, item_id),
-        index: index
-      }
-    end)
-  end
-
-  defp stream_dom_id(form_id, path, item_id) do
-    base = if path == "", do: "root", else: path
-
-    hash =
-      :crypto.hash(:sha256, form_id <> "|" <> base <> "|" <> to_string(item_id))
-      |> Base.url_encode64(padding: false)
-
-    "#{form_id}-array-#{hash}"
+    opts = Map.put_new(opts, :form_id, socket.assigns[:id])
+    StreamSync.sync(socket, old_state, new_state, opts)
   end
 
   defp notify_change(nil, _state), do: :ok

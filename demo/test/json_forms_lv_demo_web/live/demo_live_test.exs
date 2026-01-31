@@ -76,6 +76,7 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "input[type='radio'][name='status']")
     assert has_element?(view, "select[name='priority']")
     assert has_element?(view, "input[type='date'][name='start_date']")
+    assert has_element?(view, "input[type='time'][name='start_time']")
     assert has_element?(view, "input[type='datetime-local'][name='meeting']")
     assert has_element?(view, "textarea[name='notes']")
 
@@ -100,6 +101,19 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     render_blur(view, "jf:blur", %{"_target" => ["jf", "start_date"]})
 
     assert has_element?(view, "#debug-errors", "minLength")
+  end
+
+  test "suggestions scenario renders datalist autocomplete", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "suggestions"})
+
+    assert has_element?(view, "#demo-scenario", "suggestions")
+    assert has_element?(view, "input[type='text'][name='assignee'][list]")
+    assert has_element?(view, "input[type='text'][name='estimate'][list]")
+    assert has_element?(view, "input[type='text'][name='status'][list]")
+    assert has_element?(view, "datalist option[value='Ada']")
+    assert has_element?(view, "datalist option[value='open']")
   end
 
   test "formats scenario preserves date values across changes", %{conn: conn} do

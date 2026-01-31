@@ -17,19 +17,20 @@ defmodule JsonFormsLV.Phoenix.Renderers.Group do
 
   @impl JsonFormsLV.Renderer
   def render(assigns) do
-    label = Map.get(assigns.uischema, "label")
+    {label, show_label?} = resolve_label(assigns)
     label = I18n.translate_label(label, assigns.i18n, assigns.ctx)
     elements = Map.get(assigns.uischema, "elements", [])
 
     assigns =
       assigns
       |> assign(:label, label)
+      |> assign(:show_label?, show_label?)
       |> assign(:elements, Enum.with_index(elements))
 
     ~H"""
     <%= if @visible? do %>
       <fieldset id={@id} data-jf-layout="group" class="jf-layout jf-group">
-        <%= if @label do %>
+        <%= if @show_label? and @label do %>
           <legend class="jf-group-label">{@label}</legend>
         <% end %>
         <%= for {element, index} <- @elements do %>
@@ -58,4 +59,14 @@ defmodule JsonFormsLV.Phoenix.Renderers.Group do
     <% end %>
     """
   end
+
+  defp resolve_label(%{uischema: %{"label" => false}}), do: {nil, false}
+  defp resolve_label(%{uischema: %{"label" => %{"show" => false}}}), do: {nil, false}
+
+  defp resolve_label(%{uischema: %{"label" => %{"show" => true, "text" => text}}})
+       when is_binary(text),
+       do: {text, true}
+
+  defp resolve_label(%{uischema: %{"label" => label}}) when is_binary(label), do: {label, true}
+  defp resolve_label(_assigns), do: {nil, true}
 end

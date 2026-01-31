@@ -18,6 +18,10 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
 
     change_event = if assigns.binding == :per_input, do: assigns.on_change
     blur_event = assigns.on_blur
+    placeholder = placeholder(assigns)
+    suggestions = suggestions(assigns)
+    datalist_id = if suggestions != [], do: "#{assigns.id}-list"
+    autocomplete = autocomplete(assigns)
 
     value =
       case assigns.value do
@@ -32,6 +36,10 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
         disabled?: disabled?(assigns),
         change_event: change_event,
         blur_event: blur_event,
+        placeholder: placeholder,
+        suggestions: suggestions,
+        datalist_id: datalist_id,
+        autocomplete: autocomplete,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid],
         aria_required: assigns[:aria_required]
@@ -44,6 +52,9 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
       type="text"
       inputmode={@inputmode}
       value={@value}
+      placeholder={@placeholder}
+      list={@datalist_id}
+      autocomplete={@autocomplete}
       disabled={@disabled?}
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}
@@ -52,6 +63,13 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
       phx-blur={@blur_event}
       phx-target={@target}
     />
+    <%= if @suggestions != [] do %>
+      <datalist id={@datalist_id}>
+        <%= for suggestion <- @suggestions do %>
+          <option value={suggestion}></option>
+        <% end %>
+      </datalist>
+    <% end %>
     """
   end
 
@@ -61,5 +79,34 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
 
   defp disabled?(assigns) do
     not assigns.enabled? or assigns.readonly?
+  end
+
+  defp placeholder(assigns) do
+    placeholder = Map.get(assigns.options || %{}, "placeholder")
+    if is_binary(placeholder), do: placeholder
+  end
+
+  defp suggestions(assigns) do
+    case Map.get(assigns.options || %{}, "suggestion") do
+      list when is_list(list) ->
+        list
+        |> Enum.map(&to_string/1)
+        |> Enum.reject(&(&1 == ""))
+
+      value when is_binary(value) ->
+        [value]
+
+      _ ->
+        []
+    end
+  end
+
+  defp autocomplete(assigns) do
+    case Map.get(assigns.options || %{}, "autocomplete") do
+      true -> "on"
+      false -> "off"
+      value when is_binary(value) -> value
+      _ -> nil
+    end
   end
 end

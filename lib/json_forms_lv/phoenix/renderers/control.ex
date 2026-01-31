@@ -15,7 +15,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
 
   @impl JsonFormsLV.Renderer
   def render(assigns) do
-    label = resolve_label(assigns)
+    {label, label_visible?} = resolve_label(assigns)
     description = resolve_description(assigns)
     label = I18n.translate_label(label, assigns.i18n, assigns.ctx)
     description = I18n.translate_description(description, assigns.i18n, assigns.ctx)
@@ -26,7 +26,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
       if assigns.show_errors? and assigns.errors_for_control != [], do: "#{assigns.id}-errors"
 
     radio? = Map.get(assigns.options, "format") == "radio"
-    show_label? = label && not radio?
+    show_label? = (label_visible? and label) && not radio?
 
     aria_describedby =
       [description_id, errors_id]
@@ -143,20 +143,29 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
     apply(mod, func, [assigns])
   end
 
-  defp resolve_label(%{uischema: %{"label" => false}}), do: nil
+  defp resolve_label(%{uischema: %{"label" => false}}), do: {nil, false}
 
-  defp resolve_label(%{uischema: %{"label" => label}}) when is_binary(label), do: label
+  defp resolve_label(%{uischema: %{"label" => %{"show" => false}}}), do: {nil, false}
 
-  defp resolve_label(%{schema: %{"title" => title}}) when is_binary(title), do: title
+  defp resolve_label(%{uischema: %{"label" => %{"show" => true, "text" => text}}})
+       when is_binary(text),
+       do: {text, true}
+
+  defp resolve_label(%{uischema: %{"label" => label}}) when is_binary(label), do: {label, true}
+
+  defp resolve_label(%{schema: %{"title" => title}}) when is_binary(title), do: {title, true}
 
   defp resolve_label(%{path: path}) when is_binary(path) do
-    path
-    |> String.split(".", trim: true)
-    |> List.last()
-    |> humanize()
+    label =
+      path
+      |> String.split(".", trim: true)
+      |> List.last()
+      |> humanize()
+
+    {label, true}
   end
 
-  defp resolve_label(_), do: nil
+  defp resolve_label(_), do: {nil, true}
 
   defp resolve_description(%{uischema: %{"options" => %{"description" => description}}})
        when is_binary(description) do

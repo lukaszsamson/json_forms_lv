@@ -1,7 +1,8 @@
 defmodule JsonFormsLvDemoWeb.DemoLive do
   use JsonFormsLvDemoWeb, :live_view
 
-  alias JsonFormsLV.{Data, Engine, Event}
+  alias JsonFormsLV.{Engine, Event}
+  alias JsonFormsLV.Phoenix.StreamSync
 
   import JsonFormsLV.Phoenix.Components, only: [json_forms: 1]
 
@@ -34,7 +35,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       |> assign(:json_forms_renderers, config.json_forms_renderers)
       |> assign(:additional_errors, config.additional_errors)
 
-    socket = maybe_sync_array_streams(socket, state, config)
+    socket = maybe_sync_array_streams(socket, nil, state, config)
 
     {:ok, socket}
   end
@@ -45,7 +46,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       {:ok, %{path: path, value: value, meta: meta}} ->
         case Engine.update_data(socket.assigns.state, path, value, meta) do
           {:ok, state} ->
-            {:noreply, assign(socket, state: state, data: state.data)}
+            old_state = socket.assigns.state
+            socket = assign(socket, state: state, data: state.data)
+            {:noreply, maybe_sync_array_streams(socket, old_state, state)}
 
           {:error, _reason} ->
             {:noreply, socket}
@@ -81,6 +84,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
          }) do
       {:ok, state} ->
         {:ok, state} = maybe_set_additional_errors(state, config.additional_errors)
+        old_state = socket.assigns[:state]
 
         socket =
           socket
@@ -99,7 +103,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           |> assign(:json_forms_renderers, config.json_forms_renderers)
           |> assign(:additional_errors, config.additional_errors)
 
-        socket = maybe_sync_array_streams(socket, state, config)
+        socket = maybe_sync_array_streams(socket, old_state, state, config)
 
         {:noreply, socket}
 
@@ -124,8 +128,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   def handle_event("jf:add_item", %{"path" => path}, socket) do
     case Engine.add_item(socket.assigns.state, path, %{}) do
       {:ok, state} ->
+        old_state = socket.assigns.state
         socket = assign(socket, state: state, data: state.data)
-        {:noreply, maybe_sync_array_streams(socket, state)}
+        {:noreply, maybe_sync_array_streams(socket, old_state, state)}
 
       {:error, _reason} ->
         {:noreply, socket}
@@ -135,8 +140,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   def handle_event("jf:remove_item", %{"path" => path, "index" => index}, socket) do
     case Engine.remove_item(socket.assigns.state, path, index) do
       {:ok, state} ->
+        old_state = socket.assigns.state
         socket = assign(socket, state: state, data: state.data)
-        {:noreply, maybe_sync_array_streams(socket, state)}
+        {:noreply, maybe_sync_array_streams(socket, old_state, state)}
 
       {:error, _reason} ->
         {:noreply, socket}
@@ -146,8 +152,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   def handle_event("jf:move_item", %{"path" => path, "from" => from, "to" => to}, socket) do
     case Engine.move_item(socket.assigns.state, path, from, to) do
       {:ok, state} ->
+        old_state = socket.assigns.state
         socket = assign(socket, state: state, data: state.data)
-        {:noreply, maybe_sync_array_streams(socket, state)}
+        {:noreply, maybe_sync_array_streams(socket, old_state, state)}
 
       {:error, _reason} ->
         {:noreply, socket}
@@ -223,6 +230,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               ]}
             >
               Formats
+            </button>
+            <button
+              id="scenario-suggestions"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="suggestions"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "suggestions" && "bg-zinc-900 text-white",
+                @scenario != "suggestions" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Suggestions
             </button>
             <button
               id="scenario-categorization"
@@ -657,6 +677,11 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           "format" => "date",
           "minLength" => 10
         },
+        "start_time" => %{
+          "type" => "string",
+          "title" => "Start time",
+          "format" => "time"
+        },
         "meeting" => %{
           "type" => "string",
           "title" => "Meeting time",
@@ -665,6 +690,27 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         "notes" => %{
           "type" => "string",
           "title" => "Notes"
+        }
+      }
+    }
+  end
+
+  defp suggestions_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "assignee" => %{
+          "type" => "string",
+          "title" => "Assignee"
+        },
+        "estimate" => %{
+          "type" => "number",
+          "title" => "Estimate"
+        },
+        "status" => %{
+          "type" => "string",
+          "title" => "Status",
+          "enum" => ["open", "blocked", "done"]
         }
       }
     }
@@ -709,11 +755,45 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         },
         %{"type" => "Control", "scope" => "#/properties/priority"},
         %{"type" => "Control", "scope" => "#/properties/start_date"},
+        %{"type" => "Control", "scope" => "#/properties/start_time"},
         %{"type" => "Control", "scope" => "#/properties/meeting"},
         %{
           "type" => "Control",
           "scope" => "#/properties/notes",
-          "options" => %{"multi" => true}
+          "options" => %{"multi" => true, "placeholder" => "Add meeting notes"}
+        }
+      ]
+    }
+  end
+
+  defp suggestions_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/assignee",
+          "options" => %{
+            "placeholder" => "Type a name",
+            "suggestion" => ["Ada", "Grace", "Linus"],
+            "autocomplete" => "name"
+          }
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/estimate",
+          "options" => %{
+            "placeholder" => "Hours",
+            "suggestion" => [1, 2, 3, 5]
+          }
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/status",
+          "options" => %{
+            "placeholder" => "Pick a status",
+            "autocomplete" => true
+          }
         }
       ]
     }
@@ -1173,8 +1253,21 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         "status" => "active",
         "priority" => 1,
         "start_date" => "2025-01-30",
+        "start_time" => "09:30",
         "meeting" => "2025-01-30T10:00",
         "notes" => ""
+      }
+    })
+  end
+
+  defp scenario_config("suggestions") do
+    base_config(%{
+      schema: suggestions_schema(),
+      uischema: suggestions_uischema(),
+      data: %{
+        "assignee" => "Ada",
+        "estimate" => 2,
+        "status" => "open"
       }
     })
   end
@@ -1293,6 +1386,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         "status" => "active",
         "priority" => 1,
         "start_date" => "2025-01-30",
+        "start_time" => "09:30",
         "meeting" => "2025-01-30T10:00",
         "notes" => ""
       },
@@ -1409,7 +1503,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
 
   defp demo_translations(_locale), do: %{}
 
-  defp maybe_sync_array_streams(socket, state, config \\ nil) do
+  defp maybe_sync_array_streams(socket, old_state, new_state, config \\ nil) do
     opts =
       cond do
         is_map(config) -> Map.get(config, :json_forms_opts, %{})
@@ -1417,50 +1511,8 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         true -> %{}
       end
 
-    stream_arrays? =
-      Map.get(opts, :stream_arrays, false) || Map.get(opts, "stream_arrays", false)
+    opts = Map.put_new(opts, :form_id, "demo-json-forms")
 
-    stream_names = Map.get(opts, :stream_names, %{}) || Map.get(opts, "stream_names", %{})
-
-    if stream_arrays? and is_map(stream_names) and map_size(stream_names) > 0 do
-      Enum.reduce(stream_names, socket, fn {path, name}, socket ->
-        items = array_stream_items(state, path)
-        stream(socket, name, items, reset: true)
-      end)
-    else
-      socket
-    end
-  end
-
-  defp array_stream_items(state, path) do
-    items =
-      case Data.get(state.data, path) do
-        {:ok, list} when is_list(list) -> list
-        _ -> []
-      end
-
-    ids = Map.get(state.array_ids || %{}, path, [])
-
-    Enum.with_index(items)
-    |> Enum.map(fn {_item, index} ->
-      item_id = Enum.at(ids, index) || Integer.to_string(index)
-
-      %{
-        id: stream_dom_id(path, item_id),
-        index: index
-      }
-    end)
-  end
-
-  defp stream_dom_id(path, item_id) do
-    base = if path == "", do: "root", else: path
-    "demo-json-forms-Control-#{sanitize_id(base)}-item-#{sanitize_id(item_id)}"
-  end
-
-  defp sanitize_id(value) do
-    value
-    |> to_string()
-    |> String.replace(".", "-")
-    |> String.replace(~r/[^A-Za-z0-9_-]/, "-")
+    StreamSync.sync(socket, old_state, new_state, opts)
   end
 end

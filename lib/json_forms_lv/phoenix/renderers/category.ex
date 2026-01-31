@@ -17,14 +17,13 @@ defmodule JsonFormsLV.Phoenix.Renderers.Category do
 
   @impl JsonFormsLV.Renderer
   def render(assigns) do
-    label = Map.get(assigns.uischema, "label")
+    {label, show_label?} = resolve_label(assigns)
     label = I18n.translate_label(label, assigns.i18n, assigns.ctx)
     options = Map.get(assigns.uischema, "options", %{})
     elements = Map.get(assigns.uischema, "elements", [])
 
     show_label? =
-      label && Map.get(assigns.uischema, "label") != false &&
-        Map.get(options, "showLabel", true) != false
+      (show_label? and label) && Map.get(options, "showLabel", true) != false
 
     show_label? =
       if Map.get(assigns.context || %{}, :categorization_ancestor?) do
@@ -71,4 +70,14 @@ defmodule JsonFormsLV.Phoenix.Renderers.Category do
     <% end %>
     """
   end
+
+  defp resolve_label(%{uischema: %{"label" => false}}), do: {nil, false}
+  defp resolve_label(%{uischema: %{"label" => %{"show" => false}}}), do: {nil, false}
+
+  defp resolve_label(%{uischema: %{"label" => %{"show" => true, "text" => text}}})
+       when is_binary(text),
+       do: {text, true}
+
+  defp resolve_label(%{uischema: %{"label" => label}}) when is_binary(label), do: {label, true}
+  defp resolve_label(_assigns), do: {nil, true}
 end

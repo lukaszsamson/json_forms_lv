@@ -20,4 +20,22 @@ defmodule JsonFormsLV.Phoenix.LabelRendererTest do
 
     assert html =~ "Hello (i18n)"
   end
+
+  test "label renderer respects label object show false" do
+    assigns = %{
+      id: "label-2",
+      uischema: %{
+        "type" => "Label",
+        "text" => "Hidden",
+        "label" => %{"show" => false}
+      },
+      i18n: %{},
+      ctx: %{uischema: %{}, schema: %{}, path: ""},
+      visible?: true
+    }
+
+    html = render_component(&Label.render/1, assigns)
+
+    refute html =~ "Hidden"
+  end
 end

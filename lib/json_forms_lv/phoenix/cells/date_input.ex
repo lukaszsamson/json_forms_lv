@@ -19,6 +19,7 @@ defmodule JsonFormsLV.Phoenix.Cells.DateInput do
 
     change_event = if assigns.binding == :per_input, do: assigns.on_change
     blur_event = assigns.on_blur
+    placeholder = placeholder(assigns)
 
     assigns =
       assign(assigns,
@@ -26,6 +27,7 @@ defmodule JsonFormsLV.Phoenix.Cells.DateInput do
         disabled?: disabled?(assigns),
         change_event: change_event,
         blur_event: blur_event,
+        placeholder: placeholder,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid]
       )
@@ -36,6 +38,7 @@ defmodule JsonFormsLV.Phoenix.Cells.DateInput do
       name={@path}
       type="date"
       value={@value}
+      placeholder={@placeholder}
       disabled={@disabled?}
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}
@@ -72,5 +75,10 @@ defmodule JsonFormsLV.Phoenix.Cells.DateInput do
 
   defp disabled?(assigns) do
     not assigns.enabled? or assigns.readonly?
+  end
+
+  defp placeholder(assigns) do
+    placeholder = Map.get(assigns.options || %{}, "placeholder")
+    if is_binary(placeholder), do: placeholder
   end
 end

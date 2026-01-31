@@ -139,6 +139,27 @@ size checks on every change, set it to `:infinity`.
 JsonFormsLV uses dot-delimited data paths internally (for example: `"profile.name"`).
 Property names containing dots are not supported.
 
+### UISchema defaults
+
+When `uischema` is `nil`, `Engine.init/4` generates a default `VerticalLayout` with
+`Control` elements for each top-level schema property.
+
+### UISchema $ref resolution
+
+`Engine.init/4` resolves local (`#...`) `$ref` pointers in the UISchema. Remote refs
+return an error. Override the resolver with `opts[:uischema_resolver]` when needed.
+
+### Format support
+
+`format: "time"` renders a native `<input type="time">` control.
+
+### Input options
+
+- `placeholder`: placeholder text for string/number/date/time inputs (and empty option label for enum selects).
+- `suggestion`: list of suggestion values to render a `<datalist>` for string/number inputs.
+- `autocomplete`: when `true` for enum controls, renders a text input with datalist options;
+  for string/number inputs it sets the HTML `autocomplete` attribute (boolean or string).
+
 ### Categorization tab state
 
 When using the function component, you can persist the active tab by storing a

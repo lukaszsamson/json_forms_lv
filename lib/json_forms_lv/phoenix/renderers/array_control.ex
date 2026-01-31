@@ -17,7 +17,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
 
   @impl JsonFormsLV.Renderer
   def render(assigns) do
-    label = resolve_label(assigns)
+    {label, label_visible?} = resolve_label(assigns)
     description = resolve_description(assigns)
     label = I18n.translate_label(label, assigns.i18n, assigns.ctx)
     description = I18n.translate_description(description, assigns.i18n, assigns.ctx)
@@ -34,6 +34,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
     assigns =
       assign(assigns,
         label: label,
+        label_visible?: label_visible?,
         description: description,
         items: items,
         item_ids: item_ids,
@@ -48,7 +49,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
     ~H"""
     <%= if @visible? do %>
       <div id={@id} data-jf-control data-jf-array class="jf-control jf-array">
-        <%= if @label do %>
+        <%= if @label_visible? and @label do %>
           <label class="jf-label">{@label}</label>
         <% end %>
 
@@ -235,18 +236,27 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
     """
   end
 
-  defp resolve_label(%{uischema: %{"label" => false}}), do: nil
-  defp resolve_label(%{uischema: %{"label" => label}}) when is_binary(label), do: label
-  defp resolve_label(%{schema: %{"title" => title}}) when is_binary(title), do: title
+  defp resolve_label(%{uischema: %{"label" => false}}), do: {nil, false}
+  defp resolve_label(%{uischema: %{"label" => %{"show" => false}}}), do: {nil, false}
+
+  defp resolve_label(%{uischema: %{"label" => %{"show" => true, "text" => text}}})
+       when is_binary(text),
+       do: {text, true}
+
+  defp resolve_label(%{uischema: %{"label" => label}}) when is_binary(label), do: {label, true}
+  defp resolve_label(%{schema: %{"title" => title}}) when is_binary(title), do: {title, true}
 
   defp resolve_label(%{path: path}) when is_binary(path) do
-    path
-    |> String.split(".", trim: true)
-    |> List.last()
-    |> humanize()
+    label =
+      path
+      |> String.split(".", trim: true)
+      |> List.last()
+      |> humanize()
+
+    {label, true}
   end
 
-  defp resolve_label(_), do: nil
+  defp resolve_label(_), do: {nil, true}
 
   defp resolve_description(%{uischema: %{"options" => %{"description" => description}}})
        when is_binary(description) do

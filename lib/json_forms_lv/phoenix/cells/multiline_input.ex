@@ -15,6 +15,7 @@ defmodule JsonFormsLV.Phoenix.Cells.MultilineInput do
   def render(assigns) do
     change_event = if assigns.binding == :per_input, do: assigns.on_change
     blur_event = assigns.on_blur
+    placeholder = placeholder(assigns)
 
     assigns =
       assign(assigns,
@@ -22,6 +23,7 @@ defmodule JsonFormsLV.Phoenix.Cells.MultilineInput do
         value: assigns.value || "",
         change_event: change_event,
         blur_event: blur_event,
+        placeholder: placeholder,
         aria_describedby: assigns[:aria_describedby],
         aria_invalid: assigns[:aria_invalid],
         aria_required: assigns[:aria_required]
@@ -32,6 +34,7 @@ defmodule JsonFormsLV.Phoenix.Cells.MultilineInput do
       id={@id}
       name={@path}
       disabled={@disabled?}
+      placeholder={@placeholder}
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}
       aria-required={@aria_required}
@@ -44,5 +47,10 @@ defmodule JsonFormsLV.Phoenix.Cells.MultilineInput do
 
   defp disabled?(assigns) do
     not assigns.enabled? or assigns.readonly?
+  end
+
+  defp placeholder(assigns) do
+    placeholder = Map.get(assigns.options || %{}, "placeholder")
+    if is_binary(placeholder), do: placeholder
   end
 end
