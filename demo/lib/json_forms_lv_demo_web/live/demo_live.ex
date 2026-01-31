@@ -322,6 +322,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               Autocomplete
             </button>
             <button
+              id="scenario-list-detail"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="list-detail"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "list-detail" && "bg-zinc-900 text-white",
+                @scenario != "list-detail" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              List With Detail
+            </button>
+            <button
               id="scenario-categorization"
               type="button"
               phx-click="select_scenario"
@@ -1083,6 +1096,61 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp list_detail_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "users" => %{
+          "type" => "array",
+          "items" => %{
+            "type" => "object",
+            "title" => "Users",
+            "properties" => %{
+              "firstname" => %{"type" => "string"},
+              "lastname" => %{"type" => "string"},
+              "email" => %{"type" => "string", "format" => "email"},
+              "age" => %{"type" => "number", "minimum" => 0}
+            },
+            "required" => ["firstname"]
+          }
+        }
+      }
+    }
+  end
+
+  defp list_detail_uischema do
+    %{
+      "type" => "ListWithDetail",
+      "scope" => "#/properties/users",
+      "options" => %{
+        "detail" => %{
+          "type" => "VerticalLayout",
+          "elements" => [
+            %{
+              "type" => "HorizontalLayout",
+              "elements" => [
+                %{
+                  "type" => "Control",
+                  "scope" => "#/properties/firstname",
+                  "label" => "First Name"
+                },
+                %{
+                  "type" => "Control",
+                  "scope" => "#/properties/lastname",
+                  "label" => "Last Name"
+                }
+              ]
+            },
+            %{"type" => "Control", "scope" => "#/properties/age", "label" => "Age"},
+            %{"type" => "Control", "scope" => "#/properties/email", "label" => "Email"}
+          ]
+        },
+        "elementLabelProp" => "firstname",
+        "defaultOpenIndex" => 0
+      }
+    }
+  end
+
   defp live_component_schema do
     %{
       "type" => "object",
@@ -1607,6 +1675,29 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       schema: autocomplete_schema(),
       uischema: autocomplete_uischema(),
       data: %{"assignee" => "Ada"}
+    })
+  end
+
+  defp scenario_config("list-detail") do
+    base_config(%{
+      schema: list_detail_schema(),
+      uischema: list_detail_uischema(),
+      data: %{
+        "users" => [
+          %{
+            "firstname" => "Ada",
+            "lastname" => "Lovelace",
+            "age" => 36,
+            "email" => "ada@lovelace.dev"
+          },
+          %{
+            "firstname" => "Grace",
+            "lastname" => "Hopper",
+            "age" => 45,
+            "email" => "grace@hopper.dev"
+          }
+        ]
+      }
     })
   end
 

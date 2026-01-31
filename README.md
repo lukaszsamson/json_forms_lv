@@ -164,6 +164,7 @@ Override the resolver with `opts[:uischema_resolver]` when needed.
 - Autocomplete renderer: enum controls with `options.autocomplete` use the autocomplete cell.
 - `toggle`: render booleans as a switch-style checkbox.
 - `slider`: render numbers as a range input using schema `minimum`/`maximum`/`multipleOf`.
+- ListWithDetail renderer: use `uischema.type = "ListWithDetail"` for array detail lists.
 - Date/time picker options: `dateFormat`, `dateSaveFormat`, `timeFormat`, `timeSaveFormat`,
   `dateTimeFormat`, `dateTimeSaveFormat`, `ampm`, `views`, `clearLabel`, `cancelLabel`, `okLabel`.
   These are exposed as `data-jf-*` attributes on native inputs for custom picker hooks.

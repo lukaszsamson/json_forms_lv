@@ -7,7 +7,8 @@ defmodule JsonFormsLV.Dispatch do
   require Logger
 
   @spec kind_for_uischema(map()) :: :control | :layout | :unknown
-  def kind_for_uischema(%{"type" => "Control"}), do: :control
+  def kind_for_uischema(%{"type" => type}) when type in ["Control", "ListWithDetail"],
+    do: :control
 
   def kind_for_uischema(%{"type" => type})
       when type in [

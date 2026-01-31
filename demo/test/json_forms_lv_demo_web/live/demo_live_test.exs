@@ -188,6 +188,16 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "datalist option[value='Ada']")
   end
 
+  test "list detail scenario renders details items", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "list-detail"})
+
+    assert has_element?(view, "#demo-scenario", "list-detail")
+    assert has_element?(view, "details.jf-list-detail-item")
+    assert has_element?(view, "input[name='users.0.firstname']")
+  end
+
   test "formats scenario preserves date values across changes", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 
