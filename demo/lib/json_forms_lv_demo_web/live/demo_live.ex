@@ -257,6 +257,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               Defaults
             </button>
             <button
+              id="scenario-remote-uischema"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="remote-uischema"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "remote-uischema" && "bg-zinc-900 text-white",
+                @scenario != "remote-uischema" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Remote UISchema
+            </button>
+            <button
               id="scenario-categorization"
               type="button"
               phx-click="select_scenario"
@@ -846,6 +859,29 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp remote_uischema_uischema do
+    %{
+      "$ref" => "https://example.com/uischema.json#/definitions/remote"
+    }
+  end
+
+  defp remote_uischema_doc do
+    %{
+      "$id" => "https://example.com/uischema.json",
+      "definitions" => %{
+        "remote" => %{
+          "type" => "Group",
+          "label" => "Remote UI",
+          "elements" => [
+            %{"type" => "Control", "scope" => "#/properties/name"},
+            %{"type" => "Control", "scope" => "#/properties/age"},
+            %{"type" => "Control", "scope" => "#/properties/subscribed"}
+          ]
+        }
+      }
+    }
+  end
+
   defp live_component_schema do
     %{
       "type" => "object",
@@ -1330,6 +1366,17 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     })
   end
 
+  defp scenario_config("remote-uischema") do
+    base_config(%{
+      schema: demo_schema(),
+      uischema: remote_uischema_uischema(),
+      data: %{"name" => "Ada", "age" => 32, "subscribed" => true},
+      json_forms_opts: %{
+        uischema_ref_loader: &demo_uischema_loader/2
+      }
+    })
+  end
+
   defp scenario_config("categorization") do
     base_config(%{
       schema: categorization_schema(),
@@ -1560,6 +1607,12 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   end
 
   defp demo_translations(_locale), do: %{}
+
+  defp demo_uischema_loader("https://example.com/uischema.json", _opts) do
+    {:ok, remote_uischema_doc()}
+  end
+
+  defp demo_uischema_loader(_uri, _opts), do: {:error, :not_found}
 
   defp maybe_sync_array_streams(socket, old_state, new_state, config \\ nil) do
     opts =

@@ -130,6 +130,16 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "select[name='status'] option[value='open'][selected]")
   end
 
+  test "remote uischema scenario loads via loader", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "remote-uischema"})
+
+    assert has_element?(view, "#demo-scenario", "remote-uischema")
+    assert has_element?(view, ".jf-group-label", "Remote UI")
+    assert has_element?(view, "input[name='name']")
+  end
+
   test "formats scenario preserves date values across changes", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 

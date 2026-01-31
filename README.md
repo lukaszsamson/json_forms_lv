@@ -146,8 +146,10 @@ When `uischema` is `nil`, `Engine.init/4` generates a default `VerticalLayout` w
 
 ### UISchema $ref resolution
 
-`Engine.init/4` resolves local (`#...`) `$ref` pointers in the UISchema. Remote refs
-return an error. Override the resolver with `opts[:uischema_resolver]` when needed.
+`Engine.init/4` resolves `$ref` pointers in the UISchema. Local (`#...`) refs resolve
+within the same document. Remote refs require a loader function via
+`opts[:uischema_ref_loader]` (called with the URI and opts) and otherwise return an error.
+Override the resolver with `opts[:uischema_resolver]` when needed.
 
 ### Format support
 

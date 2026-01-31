@@ -60,4 +60,56 @@ defmodule JsonFormsLV.UISchemaTest do
 
     assert {:error, {:remote_ref, _ref}} = UISchemaResolver.resolve(uischema, %{})
   end
+
+  test "resolver loads remote refs with loader" do
+    loader = fn uri, _opts ->
+      assert uri == "https://example.com/ui.json"
+
+      {:ok,
+       %{
+         "$id" => uri,
+         "definitions" => %{
+           "section" => %{
+             "type" => "Group",
+             "label" => "Remote"
+           }
+         }
+       }}
+    end
+
+    uischema = %{
+      "type" => "VerticalLayout",
+      "elements" => [%{"$ref" => "https://example.com/ui.json#/definitions/section"}]
+    }
+
+    {:ok, resolved} = UISchemaResolver.resolve(uischema, %{uischema_ref_loader: loader})
+
+    assert Enum.at(resolved["elements"], 0)["label"] == "Remote"
+  end
+
+  test "resolver applies $id base for relative refs" do
+    loader = fn uri, _opts ->
+      assert uri == "https://example.com/ui/defs/section.json"
+
+      {:ok,
+       %{
+         "definitions" => %{
+           "section" => %{
+             "type" => "Group",
+             "label" => "Relative"
+           }
+         }
+       }}
+    end
+
+    uischema = %{
+      "$id" => "https://example.com/ui/root.json",
+      "type" => "VerticalLayout",
+      "elements" => [%{"$ref" => "defs/section.json#/definitions/section"}]
+    }
+
+    {:ok, resolved} = UISchemaResolver.resolve(uischema, %{uischema_ref_loader: loader})
+
+    assert Enum.at(resolved["elements"], 0)["label"] == "Relative"
+  end
 end
