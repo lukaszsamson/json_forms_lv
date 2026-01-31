@@ -175,6 +175,8 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
 
     render_click(view, "select_scenario", %{"scenario" => "arrays"})
 
+    assert stream_container?(view)
+
     assert has_element?(view, "#demo-scenario", "arrays")
     assert has_element?(view, "#debug-data", "\"title\": \"Plan\"")
 
@@ -185,6 +187,27 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     render_click(view, "jf:remove_item", %{"path" => "tasks", "index" => "0"})
 
     refute has_element?(view, "#debug-data", "\"title\": \"Plan\"")
+  end
+
+  test "streaming arrays keep stable dom ids", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "arrays"})
+
+    build_id = array_item_id_for_title(view, "Build")
+    assert is_binary(build_id)
+
+    render_click(view, "jf:move_item", %{"path" => "tasks", "from" => "1", "to" => "0"})
+
+    assert array_item_id_for_title(view, "Build") == build_id
+
+    render_click(view, "jf:add_item", %{"path" => "tasks"})
+
+    assert array_item_id_for_title(view, "Build") == build_id
+
+    render_click(view, "jf:remove_item", %{"path" => "tasks", "index" => "1"})
+
+    assert array_item_id_for_title(view, "Build") == build_id
   end
 
   test "validation scenario toggles modes", %{conn: conn} do
@@ -198,5 +221,32 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     render_click(view, "set_validation_mode", %{"mode" => "no_validation"})
 
     assert has_element?(view, "#demo-validation-mode", "no_validation")
+  end
+
+  defp array_item_id_for_title(view, title) do
+    html = render(view)
+    document = LazyHTML.from_fragment(html)
+    items = LazyHTML.query(document, "div[data-jf-array-item]")
+
+    Enum.find_value(items, fn item ->
+      inputs = LazyHTML.query(item, "input[type='text'][value='#{title}']")
+
+      if Enum.count(inputs) > 0 do
+        case LazyHTML.attribute(item, "id") do
+          [id] -> id
+          _ -> nil
+        end
+      end
+    end)
+  end
+
+  defp stream_container?(view) do
+    html = render(view)
+    document = LazyHTML.from_fragment(html)
+
+    containers =
+      LazyHTML.query(document, "#demo-json-forms-Control-tasks div[phx-update='stream']")
+
+    Enum.count(containers) == 1
   end
 end

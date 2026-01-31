@@ -23,6 +23,7 @@ defmodule JsonFormsLV.Phoenix.Components do
   attr(:renderers, :list, default: [])
   attr(:cells, :list, default: [])
   attr(:opts, :map, default: %{})
+  attr(:streams, :map, default: nil)
   attr(:on_change, :string, default: "jf:change")
   attr(:on_blur, :string, default: "jf:blur")
   attr(:on_submit, :string, default: "jf:submit")
@@ -50,6 +51,7 @@ defmodule JsonFormsLV.Phoenix.Components do
           data={@data}
           form_id={@id}
           binding={@binding}
+          streams={@streams}
           element_path={[]}
           on_change={@on_change}
           on_blur={@on_blur}
@@ -66,6 +68,7 @@ defmodule JsonFormsLV.Phoenix.Components do
         data={@data}
         form_id={@id}
         binding={@binding}
+        streams={@streams}
         element_path={[]}
         on_change={@on_change}
         on_blur={@on_blur}
@@ -83,6 +86,7 @@ defmodule JsonFormsLV.Phoenix.Components do
   attr(:data, :any, required: true)
   attr(:form_id, :string, required: true)
   attr(:binding, :atom, default: :per_input)
+  attr(:streams, :map, default: nil)
   attr(:path, :string, default: "")
   attr(:element_path, :list, default: [])
   attr(:depth, :integer, default: 0)
@@ -276,6 +280,7 @@ defmodule JsonFormsLV.Phoenix.Components do
           i18n: state.i18n,
           config: config,
           binding: assigns.binding,
+          streams: assigns.streams,
           renderer_opts: renderer_opts,
           ctx: ctx,
           errors_for_control: errors_for_control,

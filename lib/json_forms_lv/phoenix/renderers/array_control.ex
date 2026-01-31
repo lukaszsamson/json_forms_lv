@@ -25,6 +25,9 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
     item_ids = array_item_ids(assigns, items)
     show_sort? = Map.get(assigns.options, "showSortButtons") == true
     choice_select = if choice_array?(assigns.schema), do: choice_select(assigns)
+    stream_name = stream_name(assigns)
+    stream_entries = stream_entries(assigns, stream_name)
+    stream? = stream_name != nil and is_map(assigns.streams)
 
     assigns =
       assign(assigns,
@@ -33,7 +36,9 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
         items: items,
         item_ids: item_ids,
         show_sort?: show_sort?,
-        choice_select: choice_select
+        choice_select: choice_select,
+        stream?: stream?,
+        stream_entries: stream_entries
       )
 
     ~H"""
@@ -46,59 +51,117 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
         <%= if @choice_select do %>
           {@choice_select}
         <% else %>
-          <div class="jf-array-items">
-            <%= for {item, index} <- Enum.with_index(@items) do %>
-              <div
-                id={item_dom_id(@id, @item_ids, index)}
-                data-jf-array-item
-                class="jf-array-item"
-              >
-                <div class="jf-array-item-header">
-                  <span class="jf-array-item-label">{item_label(@options, item, index)}</span>
-                  <div class="jf-array-item-actions">
-                    <button
-                      id={"#{@id}-remove-#{index}"}
-                      type="button"
-                      phx-click="jf:remove_item"
-                      phx-value-path={@path}
-                      phx-value-index={index}
-                      phx-target={@target}
-                      disabled={not @enabled? or @readonly?}
-                    >
-                      Remove
-                    </button>
-                    <%= if @show_sort? do %>
+          <div
+            id={"#{@id}-items"}
+            class="jf-array-items"
+            phx-update={if @stream?, do: "stream"}
+          >
+            <%= if @stream? do %>
+              <%= for {dom_id, entry} <- @stream_entries do %>
+                <% index = entry.index || 0 %>
+                <% item = Enum.at(@items, index) %>
+                <div id={dom_id} data-jf-array-item class="jf-array-item">
+                  <div class="jf-array-item-header">
+                    <span class="jf-array-item-label">{item_label(@options, item, index)}</span>
+                    <div class="jf-array-item-actions">
                       <button
-                        id={"#{@id}-move-up-#{index}"}
+                        id={"#{@id}-remove-#{index}"}
                         type="button"
-                        phx-click="jf:move_item"
+                        phx-click="jf:remove_item"
                         phx-value-path={@path}
-                        phx-value-from={index}
-                        phx-value-to={index - 1}
+                        phx-value-index={index}
                         phx-target={@target}
-                        disabled={not @enabled? or @readonly? or index == 0}
+                        disabled={not @enabled? or @readonly?}
                       >
-                        Up
+                        Remove
                       </button>
-                      <button
-                        id={"#{@id}-move-down-#{index}"}
-                        type="button"
-                        phx-click="jf:move_item"
-                        phx-value-path={@path}
-                        phx-value-from={index}
-                        phx-value-to={index + 1}
-                        phx-target={@target}
-                        disabled={not @enabled? or @readonly? or index == length(@items) - 1}
-                      >
-                        Down
-                      </button>
-                    <% end %>
+                      <%= if @show_sort? do %>
+                        <button
+                          id={"#{@id}-move-up-#{index}"}
+                          type="button"
+                          phx-click="jf:move_item"
+                          phx-value-path={@path}
+                          phx-value-from={index}
+                          phx-value-to={index - 1}
+                          phx-target={@target}
+                          disabled={not @enabled? or @readonly? or index == 0}
+                        >
+                          Up
+                        </button>
+                        <button
+                          id={"#{@id}-move-down-#{index}"}
+                          type="button"
+                          phx-click="jf:move_item"
+                          phx-value-path={@path}
+                          phx-value-from={index}
+                          phx-value-to={index + 1}
+                          phx-target={@target}
+                          disabled={not @enabled? or @readonly? or index == length(@items) - 1}
+                        >
+                          Down
+                        </button>
+                      <% end %>
+                    </div>
+                  </div>
+                  <div class="jf-array-item-body">
+                    <%= render_item(assigns, index) %>
                   </div>
                 </div>
-                <div class="jf-array-item-body">
-                  <%= render_item(assigns, item, index) %>
+              <% end %>
+            <% else %>
+              <%= for {item, index} <- Enum.with_index(@items) do %>
+                <div
+                  id={item_dom_id(@id, @item_ids, index)}
+                  data-jf-array-item
+                  class="jf-array-item"
+                >
+                  <div class="jf-array-item-header">
+                    <span class="jf-array-item-label">{item_label(@options, item, index)}</span>
+                    <div class="jf-array-item-actions">
+                      <button
+                        id={"#{@id}-remove-#{index}"}
+                        type="button"
+                        phx-click="jf:remove_item"
+                        phx-value-path={@path}
+                        phx-value-index={index}
+                        phx-target={@target}
+                        disabled={not @enabled? or @readonly?}
+                      >
+                        Remove
+                      </button>
+                      <%= if @show_sort? do %>
+                        <button
+                          id={"#{@id}-move-up-#{index}"}
+                          type="button"
+                          phx-click="jf:move_item"
+                          phx-value-path={@path}
+                          phx-value-from={index}
+                          phx-value-to={index - 1}
+                          phx-target={@target}
+                          disabled={not @enabled? or @readonly? or index == 0}
+                        >
+                          Up
+                        </button>
+                        <button
+                          id={"#{@id}-move-down-#{index}"}
+                          type="button"
+                          phx-click="jf:move_item"
+                          phx-value-path={@path}
+                          phx-value-from={index}
+                          phx-value-to={index + 1}
+                          phx-target={@target}
+                          disabled={not @enabled? or @readonly? or index == length(@items) - 1}
+                        >
+                          Down
+                        </button>
+                      <% end %>
+                    </div>
+                  </div>
+                  <div class="jf-array-item-body">
+                    <%= render_item(assigns, index) %>
+                  </div>
                 </div>
-              </div>
+              <% end %>
             <% end %>
           </div>
 
@@ -240,7 +303,31 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
     end
   end
 
-  defp render_item(assigns, _item, index) do
+  defp stream_name(assigns) do
+    config = assigns.config || %{}
+
+    stream_arrays? =
+      Map.get(config, :stream_arrays, false) || Map.get(config, "stream_arrays", false)
+
+    stream_names = Map.get(config, :stream_names, %{}) || Map.get(config, "stream_names", %{})
+
+    if stream_arrays? do
+      Map.get(stream_names, assigns.path)
+    end
+  end
+
+  defp stream_entries(_assigns, nil), do: []
+
+  defp stream_entries(assigns, stream_name) do
+    streams = assigns.streams || %{}
+
+    case Map.get(streams, stream_name) do
+      nil -> []
+      entries -> entries
+    end
+  end
+
+  defp render_item(assigns, index) do
     schema = item_schema(assigns.schema, index)
     item_path = Path.join(assigns.path, Integer.to_string(index))
     assigns = assign(assigns, item_schema: schema, item_path: item_path, item_index: index)

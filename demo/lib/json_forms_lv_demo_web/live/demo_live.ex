@@ -1,7 +1,7 @@
 defmodule JsonFormsLvDemoWeb.DemoLive do
   use JsonFormsLvDemoWeb, :live_view
 
-  alias JsonFormsLV.{Engine, Event}
+  alias JsonFormsLV.{Data, Engine, Event}
 
   import JsonFormsLV.Phoenix.Components, only: [json_forms: 1]
 
@@ -27,6 +27,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       |> assign(:locale, config.locale)
       |> assign(:i18n, config.i18n)
       |> assign(:validation_mode, config.validation_mode)
+      |> assign(:json_forms_opts, config.json_forms_opts)
+
+    socket = maybe_sync_array_streams(socket, state, config)
 
     {:ok, socket}
   end
@@ -84,6 +87,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           |> assign(:locale, config.locale)
           |> assign(:i18n, config.i18n)
           |> assign(:validation_mode, config.validation_mode)
+          |> assign(:json_forms_opts, config.json_forms_opts)
+
+        socket = maybe_sync_array_streams(socket, state, config)
 
         {:noreply, socket}
 
@@ -107,22 +113,34 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
 
   def handle_event("jf:add_item", %{"path" => path}, socket) do
     case Engine.add_item(socket.assigns.state, path, %{}) do
-      {:ok, state} -> {:noreply, assign(socket, state: state, data: state.data)}
-      {:error, _reason} -> {:noreply, socket}
+      {:ok, state} ->
+        socket = assign(socket, state: state, data: state.data)
+        {:noreply, maybe_sync_array_streams(socket, state)}
+
+      {:error, _reason} ->
+        {:noreply, socket}
     end
   end
 
   def handle_event("jf:remove_item", %{"path" => path, "index" => index}, socket) do
     case Engine.remove_item(socket.assigns.state, path, index) do
-      {:ok, state} -> {:noreply, assign(socket, state: state, data: state.data)}
-      {:error, _reason} -> {:noreply, socket}
+      {:ok, state} ->
+        socket = assign(socket, state: state, data: state.data)
+        {:noreply, maybe_sync_array_streams(socket, state)}
+
+      {:error, _reason} ->
+        {:noreply, socket}
     end
   end
 
   def handle_event("jf:move_item", %{"path" => path, "from" => from, "to" => to}, socket) do
     case Engine.move_item(socket.assigns.state, path, from, to) do
-      {:ok, state} -> {:noreply, assign(socket, state: state, data: state.data)}
-      {:error, _reason} -> {:noreply, socket}
+      {:ok, state} ->
+        socket = assign(socket, state: state, data: state.data)
+        {:noreply, maybe_sync_array_streams(socket, state)}
+
+      {:error, _reason} ->
+        {:noreply, socket}
     end
   end
 
@@ -373,6 +391,8 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               i18n={@i18n}
               validation_mode={@validation_mode}
               binding={:form_level}
+              opts={@json_forms_opts}
+              streams={assigns[:streams]}
               wrap_form={false}
             />
 
@@ -646,6 +666,10 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           %{"title" => "Plan", "done" => false},
           %{"title" => "Build", "done" => true}
         ]
+      },
+      json_forms_opts: %{
+        stream_arrays: true,
+        stream_names: %{"tasks" => :tasks}
       }
     })
   end
@@ -721,7 +745,8 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         readonly: false,
         locale: nil,
         i18n: %{},
-        validation_mode: :validate_and_show
+        validation_mode: :validate_and_show,
+        json_forms_opts: %{}
       },
       overrides
     )
@@ -756,4 +781,59 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   end
 
   defp demo_translations(_locale), do: %{}
+
+  defp maybe_sync_array_streams(socket, state, config \\ nil) do
+    opts =
+      cond do
+        is_map(config) -> Map.get(config, :json_forms_opts, %{})
+        is_map(socket.assigns.json_forms_opts) -> socket.assigns.json_forms_opts
+        true -> %{}
+      end
+
+    stream_arrays? =
+      Map.get(opts, :stream_arrays, false) || Map.get(opts, "stream_arrays", false)
+
+    stream_names = Map.get(opts, :stream_names, %{}) || Map.get(opts, "stream_names", %{})
+
+    if stream_arrays? and is_map(stream_names) and map_size(stream_names) > 0 do
+      Enum.reduce(stream_names, socket, fn {path, name}, socket ->
+        items = array_stream_items(state, path)
+        stream(socket, name, items, reset: true)
+      end)
+    else
+      socket
+    end
+  end
+
+  defp array_stream_items(state, path) do
+    items =
+      case Data.get(state.data, path) do
+        {:ok, list} when is_list(list) -> list
+        _ -> []
+      end
+
+    ids = Map.get(state.array_ids || %{}, path, [])
+
+    Enum.with_index(items)
+    |> Enum.map(fn {_item, index} ->
+      item_id = Enum.at(ids, index) || Integer.to_string(index)
+
+      %{
+        id: stream_dom_id(path, item_id),
+        index: index
+      }
+    end)
+  end
+
+  defp stream_dom_id(path, item_id) do
+    base = if path == "", do: "root", else: path
+    "jf-stream-#{sanitize_id(base)}-#{sanitize_id(item_id)}"
+  end
+
+  defp sanitize_id(value) do
+    value
+    |> to_string()
+    |> String.replace(".", "-")
+    |> String.replace(~r/[^A-Za-z0-9_-]/, "-")
+  end
 end

@@ -29,6 +29,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.VerticalLayout do
             data={@data}
             form_id={@form_id}
             binding={@binding}
+            streams={@streams}
             path={@path}
             element_path={(@element_path || []) ++ [index]}
             depth={@depth + 1}
