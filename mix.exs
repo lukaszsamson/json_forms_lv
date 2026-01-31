@@ -34,7 +34,8 @@ defmodule JsonFormsLV.MixProject do
       {:jsv, "~> 0.16"},
       {:jason, "~> 1.4"},
       {:req, "~> 0.5"},
-      {:ex_doc, "~> 0.30", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.30", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.4", only: :dev, runtime: false}
     ]
   end
 

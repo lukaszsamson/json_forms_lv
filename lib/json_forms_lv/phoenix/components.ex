@@ -413,8 +413,6 @@ defmodule JsonFormsLV.Phoenix.Components do
     end
   end
 
-  defp required?(_state, _path), do: false
-
   defp segments_to_path([]), do: ""
 
   defp segments_to_path(segments) do

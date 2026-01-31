@@ -745,8 +745,6 @@ defmodule JsonFormsLV.Engine do
     end
   end
 
-  defp should_validate?(_state, _event, _meta), do: true
-
   defp validate_override?(meta) when is_map(meta) do
     Map.get(meta, :validate) == true or Map.get(meta, "validate") == true or
       Map.get(meta, :validate?) == true or Map.get(meta, "validate?") == true
@@ -1082,8 +1080,6 @@ defmodule JsonFormsLV.Engine do
       end
     end)
   end
-
-  defp remap_array_ids(array_ids, _path, _remap_fun), do: array_ids
 
   defp split_index_segment(""), do: :error
 
