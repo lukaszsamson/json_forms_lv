@@ -270,6 +270,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               Remote UISchema
             </button>
             <button
+              id="scenario-conditionals"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="conditionals"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "conditionals" && "bg-zinc-900 text-white",
+                @scenario != "conditionals" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Conditionals
+            </button>
+            <button
               id="scenario-categorization"
               type="button"
               phx-click="select_scenario"
@@ -882,6 +895,52 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp conditionals_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "mode" => %{
+          "type" => "string",
+          "title" => "Mode",
+          "enum" => ["basic", "advanced"]
+        }
+      },
+      "if" => %{
+        "properties" => %{
+          "mode" => %{"const" => "advanced"}
+        }
+      },
+      "then" => %{
+        "properties" => %{
+          "details" => %{
+            "type" => "string",
+            "title" => "Advanced details"
+          }
+        },
+        "required" => ["details"]
+      },
+      "else" => %{
+        "properties" => %{
+          "summary" => %{
+            "type" => "string",
+            "title" => "Basic summary"
+          }
+        }
+      }
+    }
+  end
+
+  defp conditionals_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{"type" => "Control", "scope" => "#/properties/mode"},
+        %{"type" => "Control", "scope" => "#/properties/summary"},
+        %{"type" => "Control", "scope" => "#/properties/details"}
+      ]
+    }
+  end
+
   defp live_component_schema do
     %{
       "type" => "object",
@@ -1374,6 +1433,14 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       json_forms_opts: %{
         uischema_ref_loader: &demo_uischema_loader/2
       }
+    })
+  end
+
+  defp scenario_config("conditionals") do
+    base_config(%{
+      schema: conditionals_schema(),
+      uischema: conditionals_uischema(),
+      data: %{"mode" => "basic", "summary" => "Quick overview"}
     })
   end
 

@@ -141,17 +141,23 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
   defp nullable?(_schema), do: false
 
   defp required?(assigns) do
-    with path when is_binary(path) <- assigns.path,
-         segments when segments != [] <- JsonFormsLV.Path.parse_data_path(path),
-         {leaf, parent_segments} when not is_nil(leaf) <- List.pop_at(segments, -1),
-         leaf_key when is_binary(leaf_key) <- segment_key(leaf),
-         parent_path <- segments_to_path(parent_segments),
-         {:ok, parent_schema} <-
-           JsonFormsLV.Schema.resolve_at_data_path(assigns.root_schema, parent_path),
-         required when is_list(required) <- Map.get(parent_schema, "required") do
-      leaf_key in required
-    else
-      _ -> false
+    case Map.get(assigns, :required?) do
+      value when is_boolean(value) ->
+        value
+
+      _ ->
+        with path when is_binary(path) <- assigns.path,
+             segments when segments != [] <- JsonFormsLV.Path.parse_data_path(path),
+             {leaf, parent_segments} when not is_nil(leaf) <- List.pop_at(segments, -1),
+             leaf_key when is_binary(leaf_key) <- segment_key(leaf),
+             parent_path <- segments_to_path(parent_segments),
+             {:ok, parent_schema} <-
+               JsonFormsLV.Schema.resolve_at_data_path(assigns.root_schema, parent_path),
+             required when is_list(required) <- Map.get(parent_schema, "required") do
+          leaf_key in required
+        else
+          _ -> false
+        end
     end
   end
 

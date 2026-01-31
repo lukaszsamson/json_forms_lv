@@ -81,7 +81,13 @@ defmodule JsonFormsLV.Engine do
     validate? = should_validate?(state, :change, meta)
 
     schema =
-      case Schema.resolve_at_data_path(state.schema, data_path) do
+      case Schema.resolve_at_data_path(
+             state.schema,
+             data_path,
+             state.data,
+             state.validator,
+             state.validator_opts
+           ) do
         {:ok, fragment} -> fragment
         {:error, _} -> nil
       end
@@ -155,7 +161,14 @@ defmodule JsonFormsLV.Engine do
     validate? = should_validate?(state, :change, %{})
 
     with {:ok, array} <- get_array(state.data, data_path),
-         {:ok, schema} <- Schema.resolve_at_data_path(state.schema, data_path) do
+         {:ok, schema} <-
+           Schema.resolve_at_data_path(
+             state.schema,
+             data_path,
+             state.data,
+             state.validator,
+             state.validator_opts
+           ) do
       index = normalize_index(Map.get(opts, :index) || Map.get(opts, "index"), length(array))
       item_schema = item_schema(schema, index)
       item = Map.get(opts, :item) || Map.get(opts, "item") || default_item(item_schema)

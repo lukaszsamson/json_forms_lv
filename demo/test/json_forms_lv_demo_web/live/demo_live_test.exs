@@ -140,6 +140,21 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "input[name='name']")
   end
 
+  test "conditionals scenario toggles conditional fields", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "conditionals"})
+
+    assert has_element?(view, "#demo-scenario", "conditionals")
+    assert has_element?(view, "select[name='mode']")
+    assert has_element?(view, "input[name='summary']")
+    refute has_element?(view, "input[name='details']")
+
+    render_change(view, "jf:change", %{"path" => "mode", "value" => "advanced"})
+
+    assert has_element?(view, "input[name='details']")
+  end
+
   test "formats scenario preserves date values across changes", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 

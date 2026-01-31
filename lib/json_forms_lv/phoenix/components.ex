@@ -238,7 +238,7 @@ defmodule JsonFormsLV.Phoenix.Components do
       Map.get(options, "readonly") == true or Map.get(options, "readOnly") == true
 
     schema_readonly? = is_map(schema) and Map.get(schema, "readOnly") == true
-    required? = required?(state.schema, path)
+    required? = required?(state, path)
 
     enabled? =
       if state.readonly or uischema_readonly? or schema_readonly? do
@@ -335,7 +335,13 @@ defmodule JsonFormsLV.Phoenix.Components do
         path = Path.schema_pointer_to_data_path(scope)
 
         schema =
-          case Schema.resolve_pointer(state.schema, scope) do
+          case Schema.resolve_at_data_path(
+                 state.schema,
+                 path,
+                 state.data,
+                 state.validator,
+                 state.validator_opts
+               ) do
             {:ok, fragment} -> fragment
             {:error, _} -> nil
           end
@@ -364,11 +370,18 @@ defmodule JsonFormsLV.Phoenix.Components do
 
   defp raw_input_applicable?(_raw_input, _schema), do: false
 
-  defp required?(root_schema, path) when is_binary(path) do
+  defp required?(%State{} = state, path) when is_binary(path) do
     with segments when segments != [] <- Path.parse_data_path(path),
          {leaf, parent_segments} when is_binary(leaf) <- List.pop_at(segments, -1),
          parent_path <- segments_to_path(parent_segments),
-         {:ok, parent_schema} <- Schema.resolve_at_data_path(root_schema, parent_path),
+         {:ok, parent_schema} <-
+           Schema.resolve_at_data_path(
+             state.schema,
+             parent_path,
+             state.data,
+             state.validator,
+             state.validator_opts
+           ),
          required when is_list(required) <- Map.get(parent_schema, "required") do
       leaf in required
     else
@@ -376,7 +389,7 @@ defmodule JsonFormsLV.Phoenix.Components do
     end
   end
 
-  defp required?(_root_schema, _path), do: false
+  defp required?(_state, _path), do: false
 
   defp segments_to_path([]), do: ""
 

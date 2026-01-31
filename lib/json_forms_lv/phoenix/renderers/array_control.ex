@@ -360,7 +360,15 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
   defp render_item(assigns, index) do
     schema = item_schema(assigns.schema, index)
     item_path = Path.join(assigns.path, Integer.to_string(index))
-    assigns = assign(assigns, item_schema: schema, item_path: item_path, item_index: index)
+    item_data = data_value(assigns.data, item_path)
+
+    assigns =
+      assign(assigns,
+        item_schema: schema,
+        item_path: item_path,
+        item_index: index,
+        item_data: item_data
+      )
 
     if object_schema?(schema) do
       props = detail_property_paths(assigns, schema)
@@ -369,7 +377,15 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
       ~H"""
       <%= for prop_path <- @props do %>
         <%= if is_map(@item_schema) do %>
-          <%= case Schema.resolve_at_data_path(@item_schema, prop_path) do %>
+          <%=
+            case Schema.resolve_at_data_path(
+                   @item_schema,
+                   prop_path,
+                   @item_data,
+                   @state.validator,
+                   @state.validator_opts
+                 ) do
+          %>
             <% {:ok, prop_schema} -> %>
               <%=
                 render_control(
