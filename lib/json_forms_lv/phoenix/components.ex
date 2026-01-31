@@ -30,6 +30,20 @@ defmodule JsonFormsLV.Phoenix.Components do
   attr(:on_blur, :string, default: "jf:blur")
   attr(:on_submit, :string, default: "jf:submit")
 
+  @doc """
+  Render a JSON Forms UI from schema, uischema, and data.
+
+  Use `wrap_form={false}` when you want to supply your own `<.form>` wrapper.
+
+  ## Examples
+
+      <.json_forms
+        id="profile-form"
+        schema={@schema}
+        uischema={@uischema}
+        data={@data}
+      />
+  """
   def json_forms(assigns) do
     assigns =
       assigns
@@ -221,6 +235,7 @@ defmodule JsonFormsLV.Phoenix.Components do
       Map.get(options, "readonly") == true or Map.get(options, "readOnly") == true
 
     schema_readonly? = is_map(schema) and Map.get(schema, "readOnly") == true
+    required? = required?(state.schema, path)
 
     enabled? =
       if state.readonly or uischema_readonly? or schema_readonly? do
@@ -278,6 +293,7 @@ defmodule JsonFormsLV.Phoenix.Components do
           visible?: visible?,
           enabled?: enabled?,
           readonly?: state.readonly,
+          required?: required?,
           options: options,
           i18n: state.i18n,
           config: config,
@@ -327,6 +343,28 @@ defmodule JsonFormsLV.Phoenix.Components do
     do: "number" in types or "integer" in types
 
   defp raw_input_applicable?(_raw_input, _schema), do: false
+
+  defp required?(root_schema, path) when is_binary(path) do
+    with segments when segments != [] <- Path.parse_data_path(path),
+         {leaf, parent_segments} when is_binary(leaf) <- List.pop_at(segments, -1),
+         parent_path <- segments_to_path(parent_segments),
+         {:ok, parent_schema} <- Schema.resolve_at_data_path(root_schema, parent_path),
+         required when is_list(required) <- Map.get(parent_schema, "required") do
+      leaf in required
+    else
+      _ -> false
+    end
+  end
+
+  defp required?(_root_schema, _path), do: false
+
+  defp segments_to_path([]), do: ""
+
+  defp segments_to_path(segments) do
+    segments
+    |> Enum.map(&to_string/1)
+    |> Enum.join(".")
+  end
 
   defp merge_config(nil, overrides) when is_map(overrides), do: overrides
   defp merge_config(config, nil) when is_map(config), do: config

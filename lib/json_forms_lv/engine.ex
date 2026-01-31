@@ -5,8 +5,13 @@ defmodule JsonFormsLV.Engine do
 
   alias JsonFormsLV.{Coercion, Data, Errors, Limits, Path, Rules, Schema, State}
 
+  @doc """
+  Initialize a state from schema, uischema, and data.
+  """
   @spec init(map(), map(), term(), map() | keyword()) :: {:ok, State.t()} | {:error, term()}
   def init(schema, uischema, data, opts) do
+    started_at = System.monotonic_time()
+
     cond do
       not is_map(schema) ->
         {:error, {:invalid_schema, :expected_map}}
@@ -38,13 +43,22 @@ defmodule JsonFormsLV.Engine do
           }
 
           state = init_array_ids(state)
-          {:ok, validate_state(state)}
+          state = validate_state(state)
+
+          emit_telemetry(:init, started_at, %{validation_mode: state.validation_mode})
+
+          {:ok, state}
         end
     end
   end
 
+  @doc """
+  Update data at a path, applying coercion, rules, and validation.
+  """
   @spec update_data(State.t(), String.t(), term(), map()) :: {:ok, State.t()} | {:error, term()}
   def update_data(%State{} = state, data_path, raw_value, meta \\ %{}) do
+    started_at = System.monotonic_time()
+
     schema =
       case Schema.resolve_at_data_path(state.schema, data_path) do
         {:ok, fragment} -> fragment
@@ -67,7 +81,11 @@ defmodule JsonFormsLV.Engine do
                 raw_inputs: raw_inputs
             }
 
-          {:ok, validate_state(state)}
+          state = validate_state(state)
+
+          emit_telemetry(:update_data, started_at, %{path: data_path, result: :ok})
+
+          {:ok, state}
         end
 
       {:error, raw_value} ->
@@ -91,17 +109,27 @@ defmodule JsonFormsLV.Engine do
                 raw_inputs: raw_inputs
             }
 
-          {:ok, validate_state(state)}
+          state = validate_state(state)
+
+          emit_telemetry(:update_data, started_at, %{path: data_path, result: :ok})
+
+          {:ok, state}
         end
     end
   end
 
+  @doc """
+  Mark a path as touched for error gating.
+  """
   @spec touch(State.t(), String.t()) :: {:ok, State.t()} | {:error, term()}
   def touch(%State{} = state, data_path) when is_binary(data_path) do
     touched = MapSet.put(state.touched, data_path)
     {:ok, validate_state(%State{state | touched: touched})}
   end
 
+  @doc """
+  Add a new item to an array at the given path.
+  """
   @spec add_item(State.t(), String.t(), map() | keyword()) :: {:ok, State.t()} | {:error, term()}
   def add_item(%State{} = state, data_path, opts \\ %{}) do
     opts = normalize_opts(opts)
@@ -126,6 +154,9 @@ defmodule JsonFormsLV.Engine do
     end
   end
 
+  @doc """
+  Remove an array item by index or stable id.
+  """
   @spec remove_item(State.t(), String.t(), term()) :: {:ok, State.t()} | {:error, term()}
   def remove_item(%State{} = state, data_path, index_or_id) do
     with {:ok, array} <- get_array(state.data, data_path),
@@ -143,6 +174,9 @@ defmodule JsonFormsLV.Engine do
     end
   end
 
+  @doc """
+  Move an array item from one index to another.
+  """
   @spec move_item(State.t(), String.t(), term(), term()) :: {:ok, State.t()} | {:error, term()}
   def move_item(%State{} = state, data_path, from, to) do
     with {:ok, array} <- get_array(state.data, data_path),
@@ -166,6 +200,9 @@ defmodule JsonFormsLV.Engine do
     end
   end
 
+  @doc """
+  Replace additional errors and revalidate.
+  """
   @spec set_additional_errors(State.t(), [map()]) :: {:ok, State.t()}
   def set_additional_errors(%State{} = state, additional_errors)
       when is_list(additional_errors) do
@@ -173,12 +210,18 @@ defmodule JsonFormsLV.Engine do
     {:ok, validate_state(state)}
   end
 
+  @doc """
+  Update validation mode and revalidate.
+  """
   @spec set_validation_mode(State.t(), atom()) :: {:ok, State.t()}
   def set_validation_mode(%State{} = state, mode) when is_atom(mode) do
     state = %State{state | validation_mode: mode}
     {:ok, validate_state(state)}
   end
 
+  @doc """
+  Mark all current paths as touched and set submitted.
+  """
   @spec touch_all(State.t()) :: {:ok, State.t()}
   def touch_all(%State{} = state) do
     paths = collect_paths(state.data, "")
@@ -188,11 +231,17 @@ defmodule JsonFormsLV.Engine do
     {:ok, validate_state(state)}
   end
 
+  @doc """
+  Set global readonly state.
+  """
   @spec set_readonly(State.t(), boolean()) :: {:ok, State.t()}
   def set_readonly(%State{} = state, readonly) when is_boolean(readonly) do
     {:ok, %State{state | readonly: readonly}}
   end
 
+  @doc """
+  Update core schema/uischema/options and revalidate.
+  """
   @spec update_core(State.t(), map()) :: {:ok, State.t()} | {:error, term()}
   def update_core(%State{} = state, updates) when is_map(updates) do
     schema = Map.get(updates, :schema) || Map.get(updates, "schema") || state.schema
@@ -234,6 +283,9 @@ defmodule JsonFormsLV.Engine do
 
   def update_core(_state, updates), do: {:error, {:invalid_updates, updates}}
 
+  @doc """
+  Dispatch a reducer-style action.
+  """
   @spec dispatch(State.t(), term()) :: {:ok, State.t()} | {:error, term()}
   def dispatch(%State{} = state, action) do
     case action do
@@ -520,6 +572,7 @@ defmodule JsonFormsLV.Engine do
   defp object_schema?(_schema), do: false
 
   defp validate_state(%State{} = state) do
+    started_at = System.monotonic_time()
     rule_state = Rules.evaluate(state.uischema, state.data, state.validator, state.validator_opts)
     additional_errors = Errors.normalize_additional(state.additional_errors || [])
 
@@ -541,6 +594,25 @@ defmodule JsonFormsLV.Engine do
 
     errors = Errors.merge(validator_errors, additional_errors, state.opts)
 
-    %State{state | errors: errors, additional_errors: additional_errors, rule_state: rule_state}
+    state = %State{
+      state
+      | errors: errors,
+        additional_errors: additional_errors,
+        rule_state: rule_state
+    }
+
+    emit_telemetry(:validate, started_at, %{error_count: length(errors)})
+
+    state
+  end
+
+  defp emit_telemetry(event, started_at, metadata) when is_atom(event) do
+    duration = System.monotonic_time() - started_at
+
+    :telemetry.execute(
+      [:json_forms_lv, event],
+      %{duration: duration},
+      metadata
+    )
   end
 end

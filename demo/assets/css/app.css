@@ -162,7 +162,8 @@
 .jf-control input[type="date"]:focus,
 .jf-control input[type="time"]:focus,
 .jf-control input[type="datetime-local"]:focus {
-  outline: none;
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(var(--color-primary), 0.2);
 }

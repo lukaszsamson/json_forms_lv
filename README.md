@@ -56,3 +56,12 @@ Enable logging for custom tester exceptions:
 ```elixir
 config :json_forms_lv, log_tester_errors: true
 ```
+
+### Telemetry
+
+The library emits basic Telemetry events (all include `%{duration: t}`):
+
+- `[:json_forms_lv, :init]` — metadata: `validation_mode`
+- `[:json_forms_lv, :update_data]` — metadata: `path`, `result`
+- `[:json_forms_lv, :validate]` — metadata: `error_count`
+- `[:json_forms_lv, :dispatch]` — metadata: `kind`, `renderer`, `uischema_type`, `schema_type`, `path`

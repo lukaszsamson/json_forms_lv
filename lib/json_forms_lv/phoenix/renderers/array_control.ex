@@ -21,8 +21,10 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
     description = resolve_description(assigns)
     label = I18n.translate_label(label, assigns.i18n, assigns.ctx)
     description = I18n.translate_description(description, assigns.i18n, assigns.ctx)
+    add_aria_label = if label, do: "Add #{label}", else: "Add item"
     items = array_items(assigns)
     item_ids = array_item_ids(assigns, items)
+    item_labels = item_labels(assigns, items)
     show_sort? = Map.get(assigns.options, "showSortButtons") == true
     choice_select = if choice_array?(assigns.schema), do: choice_select(assigns)
     stream_name = stream_name(assigns)
@@ -35,8 +37,10 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
         description: description,
         items: items,
         item_ids: item_ids,
+        item_labels: item_labels,
         show_sort?: show_sort?,
         choice_select: choice_select,
+        add_aria_label: add_aria_label,
         stream?: stream?,
         stream_entries: stream_entries
       )
@@ -59,14 +63,14 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
             <%= if @stream? do %>
               <%= for {dom_id, entry} <- @stream_entries do %>
                 <% index = entry.index || 0 %>
-                <% item = Enum.at(@items, index) %>
                 <div id={dom_id} data-jf-array-item class="jf-array-item">
                   <div class="jf-array-item-header">
-                    <span class="jf-array-item-label">{item_label(@options, item, index)}</span>
+                    <span class="jf-array-item-label">{@item_labels[index]}</span>
                     <div class="jf-array-item-actions">
                       <button
                         id={"#{@id}-remove-#{index}"}
                         type="button"
+                        aria-label={"Remove #{@item_labels[index]}"}
                         phx-click="jf:remove_item"
                         phx-value-path={@path}
                         phx-value-index={index}
@@ -79,6 +83,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                         <button
                           id={"#{@id}-move-up-#{index}"}
                           type="button"
+                          aria-label={"Move #{@item_labels[index]} up"}
                           phx-click="jf:move_item"
                           phx-value-path={@path}
                           phx-value-from={index}
@@ -91,6 +96,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                         <button
                           id={"#{@id}-move-down-#{index}"}
                           type="button"
+                          aria-label={"Move #{@item_labels[index]} down"}
                           phx-click="jf:move_item"
                           phx-value-path={@path}
                           phx-value-from={index}
@@ -116,11 +122,12 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                   class="jf-array-item"
                 >
                   <div class="jf-array-item-header">
-                    <span class="jf-array-item-label">{item_label(@options, item, index)}</span>
+                    <span class="jf-array-item-label">{@item_labels[index]}</span>
                     <div class="jf-array-item-actions">
                       <button
                         id={"#{@id}-remove-#{index}"}
                         type="button"
+                        aria-label={"Remove #{@item_labels[index]}"}
                         phx-click="jf:remove_item"
                         phx-value-path={@path}
                         phx-value-index={index}
@@ -133,6 +140,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                         <button
                           id={"#{@id}-move-up-#{index}"}
                           type="button"
+                          aria-label={"Move #{@item_labels[index]} up"}
                           phx-click="jf:move_item"
                           phx-value-path={@path}
                           phx-value-from={index}
@@ -145,6 +153,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                         <button
                           id={"#{@id}-move-down-#{index}"}
                           type="button"
+                          aria-label={"Move #{@item_labels[index]} down"}
                           phx-click="jf:move_item"
                           phx-value-path={@path}
                           phx-value-from={index}
@@ -168,6 +177,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
           <button
             id={"#{@id}-add"}
             type="button"
+            aria-label={@add_aria_label}
             phx-click="jf:add_item"
             phx-value-path={@path}
             phx-target={@target}
@@ -204,7 +214,8 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
     selected = data_value(assigns.data, assigns.path) || []
     selected = if is_list(selected), do: selected, else: []
 
-    assigns = assign(assigns, options: options, selected: selected)
+    aria_required = if assigns.required?, do: "true"
+    assigns = assign(assigns, options: options, selected: selected, aria_required: aria_required)
 
     ~H"""
     <select
@@ -212,6 +223,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
       name={@path}
       multiple
       disabled={not @enabled? or @readonly?}
+      aria-required={@aria_required}
       phx-change={if @binding == :per_input, do: @on_change}
       phx-blur={@on_blur}
       phx-target={@target}
@@ -301,6 +313,14 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
       true ->
         "Item #{index + 1}"
     end
+  end
+
+  defp item_labels(assigns, items) do
+    options = assigns.options || %{}
+
+    items
+    |> Enum.with_index()
+    |> Map.new(fn {item, index} -> {index, item_label(options, item, index)} end)
   end
 
   defp stream_name(assigns) do

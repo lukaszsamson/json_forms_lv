@@ -39,12 +39,18 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
       |> assign(:allow_empty?, allow_empty?)
       |> assign(:change_event, change_event)
       |> assign(:blur_event, blur_event)
+      |> assign(:aria_describedby, assigns[:aria_describedby])
+      |> assign(:aria_invalid, assigns[:aria_invalid])
+      |> assign(:aria_required, assigns[:aria_required])
 
     ~H"""
     <select
       id={@id}
       name={@path}
       disabled={@disabled?}
+      aria-describedby={@aria_describedby}
+      aria-invalid={@aria_invalid}
+      aria-required={@aria_required}
       phx-change={@change_event}
       phx-blur={@blur_event}
       phx-target={@target}

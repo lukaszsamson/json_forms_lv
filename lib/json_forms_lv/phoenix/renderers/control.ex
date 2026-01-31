@@ -20,8 +20,35 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
     label = I18n.translate_label(label, assigns.i18n, assigns.ctx)
     description = I18n.translate_description(description, assigns.i18n, assigns.ctx)
     input_id = "#{assigns.id}-input"
+    description_id = if description, do: "#{assigns.id}-description"
 
-    assigns = assign(assigns, label: label, description: description, input_id: input_id)
+    errors_id =
+      if assigns.show_errors? and assigns.errors_for_control != [], do: "#{assigns.id}-errors"
+
+    radio? = Map.get(assigns.options, "format") == "radio"
+    show_label? = label && not radio?
+
+    aria_describedby =
+      [description_id, errors_id]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" ")
+
+    aria_describedby = if aria_describedby == "", do: nil, else: aria_describedby
+    aria_invalid = if errors_id, do: "true"
+    aria_required = if assigns.required?, do: "true"
+
+    assigns =
+      assign(assigns,
+        label: label,
+        description: description,
+        input_id: input_id,
+        description_id: description_id,
+        errors_id: errors_id,
+        aria_describedby: aria_describedby,
+        aria_invalid: aria_invalid,
+        aria_required: aria_required,
+        show_label?: show_label?
+      )
 
     cell_entry =
       Dispatch.pick_renderer(
@@ -39,7 +66,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
     ~H"""
     <%= if @visible? do %>
       <div id={@id} data-jf-control class="jf-control">
-        <%= if @label do %>
+        <%= if @show_label? do %>
           <label for={@input_id} class="jf-label">{@label}</label>
         <% end %>
         <.dynamic_component
@@ -63,12 +90,17 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
           on_change={@on_change}
           on_blur={@on_blur}
           target={@target}
+          aria_describedby={@aria_describedby}
+          aria_invalid={@aria_invalid}
+          aria_required={@aria_required}
+          label={@label}
+          required?={@required?}
         />
         <%= if @description do %>
-          <p class="jf-description">{@description}</p>
+          <p id={@description_id} class="jf-description">{@description}</p>
         <% end %>
         <%= if @show_errors? and @errors_for_control != [] do %>
-          <ul class="jf-errors">
+          <ul id={@errors_id} class="jf-errors" role="alert">
             <%= for error <- @errors_for_control do %>
               <li>{I18n.translate_error(error, @i18n, @ctx)}</li>
             <% end %>
@@ -99,6 +131,11 @@ defmodule JsonFormsLV.Phoenix.Renderers.Control do
   attr(:on_change, :string, required: true)
   attr(:on_blur, :string, required: true)
   attr(:target, :any, default: nil)
+  attr(:aria_describedby, :string, default: nil)
+  attr(:aria_invalid, :string, default: nil)
+  attr(:aria_required, :string, default: nil)
+  attr(:label, :string, default: nil)
+  attr(:required?, :boolean, default: false)
 
   defp dynamic_component(assigns) do
     {mod, assigns} = Map.pop(assigns, :module)

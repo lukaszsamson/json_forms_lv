@@ -27,6 +27,8 @@ defmodule JsonFormsLV.Dispatch do
   @spec pick_renderer(map(), map() | nil, Registry.t(), map(), atom()) ::
           {module(), keyword()} | nil
   def pick_renderer(uischema, schema, %Registry{} = registry, ctx, kind) do
+    started_at = System.monotonic_time()
+
     entries =
       case kind do
         :control -> registry.control_renderers
@@ -35,7 +37,11 @@ defmodule JsonFormsLV.Dispatch do
         _ -> []
       end
 
-    select_best(entries, uischema, schema, ctx)
+    result = select_best(entries, uischema, schema, ctx)
+
+    emit_dispatch_telemetry(started_at, result, kind, uischema, schema, ctx)
+
+    result
   end
 
   defp select_best(entries, uischema, schema, ctx) do
@@ -77,6 +83,28 @@ defmodule JsonFormsLV.Dispatch do
       end
 
       :not_applicable
+  end
+
+  defp emit_dispatch_telemetry(started_at, result, kind, uischema, schema, ctx) do
+    duration = System.monotonic_time() - started_at
+
+    module =
+      case result do
+        {mod, _opts} -> mod
+        _ -> nil
+      end
+
+    :telemetry.execute(
+      [:json_forms_lv, :dispatch],
+      %{duration: duration},
+      %{
+        kind: kind,
+        renderer: module,
+        uischema_type: Map.get(uischema || %{}, "type"),
+        schema_type: Map.get(schema || %{}, "type"),
+        path: Map.get(ctx || %{}, :path)
+      }
+    )
   end
 
   defp normalize_entry({module, opts}) when is_list(opts), do: {module, opts}

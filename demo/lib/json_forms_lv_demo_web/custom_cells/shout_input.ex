@@ -30,7 +30,9 @@ defmodule JsonFormsLvDemoWeb.CustomCells.ShoutInput do
         value: value,
         change_event: change_event,
         disabled?: disabled?(assigns),
-        preview: String.upcase(value)
+        preview: String.upcase(value),
+        aria_describedby: assigns[:aria_describedby],
+        aria_invalid: assigns[:aria_invalid]
       )
 
     ~H"""
@@ -38,11 +40,13 @@ defmodule JsonFormsLvDemoWeb.CustomCells.ShoutInput do
       <input
         id={@id}
         name={@path}
-        type="text"
-        value={@value}
-        data-custom-cell="shout"
-        disabled={@disabled?}
-        phx-change={@change_event}
+      type="text"
+      value={@value}
+      data-custom-cell="shout"
+      disabled={@disabled?}
+      aria-describedby={@aria_describedby}
+      aria-invalid={@aria_invalid}
+      phx-change={@change_event}
         phx-blur={@on_blur}
         phx-target={@target}
       />

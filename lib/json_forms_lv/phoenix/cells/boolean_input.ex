@@ -21,7 +21,10 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
         checked?: assigns.value == true,
         disabled?: disabled?(assigns),
         change_event: change_event,
-        blur_event: blur_event
+        blur_event: blur_event,
+        aria_describedby: assigns[:aria_describedby],
+        aria_invalid: assigns[:aria_invalid],
+        aria_required: assigns[:aria_required]
       )
 
     ~H"""
@@ -33,6 +36,9 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
       value="true"
       checked={@checked?}
       disabled={@disabled?}
+      aria-describedby={@aria_describedby}
+      aria-invalid={@aria_invalid}
+      aria-required={@aria_required}
       phx-change={@change_event}
       phx-blur={@blur_event}
       phx-target={@target}

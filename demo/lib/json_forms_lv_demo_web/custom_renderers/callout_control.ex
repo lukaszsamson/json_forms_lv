@@ -27,8 +27,15 @@ defmodule JsonFormsLvDemoWeb.CustomRenderers.CalloutControl do
     label = I18n.translate_label(label, assigns.i18n, assigns.ctx)
     description = I18n.translate_description(description, assigns.i18n, assigns.ctx)
     input_id = "#{assigns.id}-input"
+    aria_required = if assigns.required?, do: "true"
 
-    assigns = assign(assigns, label: label, description: description, input_id: input_id)
+    assigns =
+      assign(assigns,
+        label: label,
+        description: description,
+        input_id: input_id,
+        aria_required: aria_required
+      )
 
     cell_entry =
       Dispatch.pick_renderer(
@@ -72,6 +79,9 @@ defmodule JsonFormsLvDemoWeb.CustomRenderers.CalloutControl do
             on_change={@on_change}
             on_blur={@on_blur}
             target={@target}
+            aria_required={@aria_required}
+            label={@label}
+            required?={@required?}
           />
           <%= if @description do %>
             <p class="jf-description">{@description}</p>
@@ -109,6 +119,9 @@ defmodule JsonFormsLvDemoWeb.CustomRenderers.CalloutControl do
   attr(:on_change, :string, required: true)
   attr(:on_blur, :string, required: true)
   attr(:target, :any, default: nil)
+  attr(:aria_required, :string, default: nil)
+  attr(:label, :string, default: nil)
+  attr(:required?, :boolean, default: false)
 
   defp dynamic_component(assigns) do
     {mod, assigns} = Map.pop(assigns, :module)
