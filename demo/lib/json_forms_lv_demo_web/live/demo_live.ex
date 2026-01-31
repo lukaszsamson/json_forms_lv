@@ -309,6 +309,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               Widgets
             </button>
             <button
+              id="scenario-autocomplete"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="autocomplete"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "autocomplete" && "bg-zinc-900 text-white",
+                @scenario != "autocomplete" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Autocomplete
+            </button>
+            <button
               id="scenario-categorization"
               type="button"
               phx-click="select_scenario"
@@ -1041,6 +1054,35 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp autocomplete_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "assignee" => %{
+          "type" => "string",
+          "title" => "Assignee",
+          "enum" => ["Ada", "Grace", "Linus", "Joan"]
+        }
+      }
+    }
+  end
+
+  defp autocomplete_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/assignee",
+          "options" => %{
+            "autocomplete" => true,
+            "placeholder" => "Start typing"
+          }
+        }
+      ]
+    }
+  end
+
   defp live_component_schema do
     %{
       "type" => "object",
@@ -1557,6 +1599,14 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       schema: widgets_schema(),
       uischema: widgets_uischema(),
       data: %{"enabled" => true, "volume" => 4.5}
+    })
+  end
+
+  defp scenario_config("autocomplete") do
+    base_config(%{
+      schema: autocomplete_schema(),
+      uischema: autocomplete_uischema(),
+      data: %{"assignee" => "Ada"}
     })
   end
 

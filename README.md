@@ -161,6 +161,7 @@ Override the resolver with `opts[:uischema_resolver]` when needed.
 - `suggestion`: list of suggestion values to render a `<datalist>` for string/number inputs.
 - `autocomplete`: when `true` for enum controls, renders a text input with datalist options;
   for string/number inputs it sets the HTML `autocomplete` attribute (boolean or string).
+- Autocomplete renderer: enum controls with `options.autocomplete` use the autocomplete cell.
 - `toggle`: render booleans as a switch-style checkbox.
 - `slider`: render numbers as a range input using schema `minimum`/`maximum`/`multipleOf`.
 - Date/time picker options: `dateFormat`, `dateSaveFormat`, `timeFormat`, `timeSaveFormat`,

@@ -187,6 +187,7 @@ defmodule JsonFormsLV.Phoenix.Components do
       ],
       cell_renderers: [
         JsonFormsLV.Phoenix.Cells.EnumRadio,
+        JsonFormsLV.Phoenix.Cells.AutocompleteSelect,
         JsonFormsLV.Phoenix.Cells.EnumSelect,
         JsonFormsLV.Phoenix.Cells.DateInput,
         JsonFormsLV.Phoenix.Cells.TimeInput,

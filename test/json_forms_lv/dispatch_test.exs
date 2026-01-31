@@ -120,6 +120,26 @@ defmodule JsonFormsLV.DispatchTest do
     assert opts == [foo: :bar]
   end
 
+  test "dispatch selects autocomplete cell" do
+    registry =
+      Registry.new(
+        control_renderers: [],
+        layout_renderers: [],
+        cell_renderers: [
+          JsonFormsLV.Phoenix.Cells.AutocompleteSelect,
+          JsonFormsLV.Phoenix.Cells.EnumSelect
+        ]
+      )
+
+    ctx = %{}
+    uischema = %{"type" => "Control", "options" => %{"autocomplete" => true}}
+    schema = %{"type" => "string", "enum" => ["alpha", "beta"]}
+
+    {module, _opts} = Dispatch.pick_renderer(uischema, schema, registry, ctx, :cell)
+
+    assert module == JsonFormsLV.Phoenix.Cells.AutocompleteSelect
+  end
+
   test "dispatch skips invalid or raising testers" do
     registry =
       Registry.new(

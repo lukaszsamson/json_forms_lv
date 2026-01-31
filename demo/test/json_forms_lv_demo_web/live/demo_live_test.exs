@@ -178,6 +178,16 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "input[name='volume'][type='range']")
   end
 
+  test "autocomplete scenario renders datalist input", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "autocomplete"})
+
+    assert has_element?(view, "#demo-scenario", "autocomplete")
+    assert has_element?(view, "input[name='assignee'][list]")
+    assert has_element?(view, "datalist option[value='Ada']")
+  end
+
   test "formats scenario preserves date values across changes", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 
