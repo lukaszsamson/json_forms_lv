@@ -33,6 +33,7 @@ defmodule JsonFormsLV.MixProject do
       {:phoenix_live_view, "~> 1.1.0"},
       {:jsv, "~> 0.16"},
       {:jason, "~> 1.4"},
+      {:req, "~> 0.5"},
       {:ex_doc, "~> 0.30", only: :dev, runtime: false}
     ]
   end
@@ -51,6 +52,7 @@ defmodule JsonFormsLV.MixProject do
           JsonFormsLV.Rules,
           JsonFormsLV.UISchema,
           JsonFormsLV.UISchemaResolver,
+          JsonFormsLV.DynamicEnums,
           JsonFormsLV.Coercion
         ],
         Validation: [JsonFormsLV.Validator, JsonFormsLV.Errors],

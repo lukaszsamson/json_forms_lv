@@ -7,6 +7,7 @@ defmodule JsonFormsLV.Engine do
     Coercion,
     Data,
     Errors,
+    DynamicEnums,
     Limits,
     Path,
     Rules,
@@ -45,6 +46,7 @@ defmodule JsonFormsLV.Engine do
         validator_opts = Map.get(opts_with_limits, :validator_opts, [])
 
         with {:ok, resolved_schema} <- resolver.resolve(schema, opts_with_limits),
+             {:ok, resolved_schema} <- DynamicEnums.resolve(resolved_schema, opts_with_limits),
              {:ok, compiled} <- validator.compile(resolved_schema, validator_opts),
              data <- maybe_apply_defaults(data, resolved_schema, opts_with_limits),
              :ok <- ensure_data_size(data, opts_with_limits) do
@@ -346,6 +348,7 @@ defmodule JsonFormsLV.Engine do
       end
 
     with {:ok, resolved_schema} <- resolver.resolve(schema, opts),
+         {:ok, resolved_schema} <- DynamicEnums.resolve(resolved_schema, opts),
          {:ok, compiled} <-
            maybe_compile(needs_compile?, resolved_schema, validator, validator_opts, state) do
       state = %State{

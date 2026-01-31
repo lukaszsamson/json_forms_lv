@@ -183,6 +183,19 @@ to `schema.title`/`schema.label` or the base path key.
 When `i18n.locale` is set, inputs render a matching `lang` attribute so browsers can apply
 locale-aware date/time formatting. Numbers remain unformatted (raw value) to preserve parsing.
 
+### Dynamic enums
+
+Use `x-url` (absolute) or `x-endpoint` (relative) in schema properties to load enum values
+at init time. Provide an `enum_loader` option (or rely on the default Req loader):
+
+```elixir
+{:ok, state} =
+  JsonFormsLV.Engine.init(schema, uischema, data, %{
+    enum_loader: fn url, _cache -> {:ok, ["open", "closed"]} end,
+    enum_base_url: "https://example.com"
+  })
+```
+
 ### writeOnly handling
 
 Schema properties marked with `"writeOnly": true` are cleared from rendered inputs after submission
