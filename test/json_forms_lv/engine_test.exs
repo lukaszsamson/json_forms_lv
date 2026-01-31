@@ -101,6 +101,47 @@ defmodule JsonFormsLV.EngineTest do
     assert Enum.any?(state.errors, &(&1.source == :additional))
   end
 
+  test "update_errors replaces additional errors" do
+    {:ok, state} = Engine.init(%{}, %{}, %{}, %{})
+
+    {:ok, state} =
+      Engine.update_errors(state, [
+        %{"instancePath" => "/name", "message" => "Custom", "keyword" => "external"}
+      ])
+
+    assert Enum.any?(state.errors, &(&1.source == :additional))
+  end
+
+  test "set_locale updates i18n" do
+    {:ok, state} = Engine.init(%{}, %{}, %{}, %{})
+
+    {:ok, state} = Engine.set_locale(state, "es")
+
+    assert state.i18n[:locale] == "es"
+  end
+
+  test "set_translator updates i18n" do
+    {:ok, state} = Engine.init(%{}, %{}, %{}, %{})
+    translate = fn _key, default, _ctx -> default end
+
+    {:ok, state} = Engine.set_translator(state, translate)
+
+    assert state.i18n[:translate] == translate
+  end
+
+  test "validate re-runs validation" do
+    schema = %{
+      "type" => "object",
+      "properties" => %{"name" => %{"type" => "string", "minLength" => 1}}
+    }
+
+    {:ok, state} = Engine.init(schema, %{}, %{"name" => ""}, %{validation_mode: :no_validation})
+    assert state.errors == []
+
+    {:ok, state} = Engine.validate(state)
+    assert Enum.any?(state.errors, &(&1.keyword == "minLength"))
+  end
+
   test "set_combinator stores selection" do
     {:ok, state} = Engine.init(%{}, %{}, %{}, %{})
 

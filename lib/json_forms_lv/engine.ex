@@ -305,6 +305,41 @@ defmodule JsonFormsLV.Engine do
   end
 
   @doc """
+  Update i18n locale.
+  """
+  @spec set_locale(State.t(), String.t() | nil) :: {:ok, State.t()}
+  def set_locale(%State{} = state, locale) when is_binary(locale) or is_nil(locale) do
+    i18n = Map.put(state.i18n || %{}, :locale, locale)
+    {:ok, %State{state | i18n: i18n}}
+  end
+
+  @doc """
+  Update i18n translate function.
+  """
+  @spec set_translator(State.t(), function() | nil) :: {:ok, State.t()}
+  def set_translator(%State{} = state, translate)
+      when is_function(translate) or is_nil(translate) do
+    i18n = Map.put(state.i18n || %{}, :translate, translate)
+    {:ok, %State{state | i18n: i18n}}
+  end
+
+  @doc """
+  Replace validator errors with additional errors.
+  """
+  @spec update_errors(State.t(), [map()]) :: {:ok, State.t()}
+  def update_errors(%State{} = state, errors) when is_list(errors) do
+    set_additional_errors(state, errors)
+  end
+
+  @doc """
+  Re-run validation for current state.
+  """
+  @spec validate(State.t()) :: {:ok, State.t()}
+  def validate(%State{} = state) do
+    {:ok, validate_state(state, :all, true)}
+  end
+
+  @doc """
   Update core schema/uischema/options and revalidate.
   """
   @spec update_core(State.t(), map()) :: {:ok, State.t()} | {:error, term()}
@@ -381,8 +416,12 @@ defmodule JsonFormsLV.Engine do
       {:remove_item, path, index_or_id} -> remove_item(state, path, index_or_id)
       {:move_item, path, from, to} -> move_item(state, path, from, to)
       {:set_additional_errors, errors} -> set_additional_errors(state, errors)
+      {:update_errors, errors} -> update_errors(state, errors)
       {:set_validation_mode, mode} -> set_validation_mode(state, mode)
       {:set_readonly, readonly} -> set_readonly(state, readonly)
+      {:set_locale, locale} -> set_locale(state, locale)
+      {:set_translator, translate} -> set_translator(state, translate)
+      :validate -> validate(state)
       {:update_core, updates} -> update_core(state, updates)
       _ -> {:error, {:unsupported_action, action}}
     end

@@ -196,6 +196,11 @@ at init time. Provide an `enum_loader` option (or rely on the default Req loader
   })
 ```
 
+### Dispatch actions
+
+`Engine.dispatch/2` supports `{:set_locale, locale}`, `{:set_translator, fun}`,
+`{:update_errors, errors}`, and `:validate` for JSON Forms-style action handling.
+
 ### writeOnly handling
 
 Schema properties marked with `"writeOnly": true` are cleared from rendered inputs after submission
