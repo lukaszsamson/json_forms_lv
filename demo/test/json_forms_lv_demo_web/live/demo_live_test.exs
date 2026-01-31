@@ -116,6 +116,20 @@ defmodule JsonFormsLvDemoWeb.DemoLiveTest do
     assert has_element?(view, "datalist option[value='open']")
   end
 
+  test "defaults scenario applies schema defaults", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/demo")
+
+    render_click(view, "select_scenario", %{"scenario" => "defaults"})
+
+    assert has_element?(view, "#demo-scenario", "defaults")
+    assert has_element?(view, "#debug-data", "\"name\": \"Ada\"")
+    assert has_element?(view, "#debug-data", "\"priority\": 2")
+    assert has_element?(view, "#debug-data", "\"status\": \"open\"")
+    assert has_element?(view, "input[name='name'][value='Ada']")
+    assert has_element?(view, "input[name='priority'][value='2']")
+    assert has_element?(view, "select[name='status'] option[value='open'][selected]")
+  end
+
   test "formats scenario preserves date values across changes", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/demo")
 

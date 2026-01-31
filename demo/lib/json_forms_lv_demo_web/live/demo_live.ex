@@ -10,10 +10,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   def mount(_params, _session, socket) do
     config = scenario_config("basic")
 
-    {:ok, state} =
-      Engine.init(config.schema, config.uischema, config.data, %{
-        validation_mode: config.validation_mode
-      })
+    engine_opts = Map.merge(%{validation_mode: config.validation_mode}, config.json_forms_opts)
+
+    {:ok, state} = Engine.init(config.schema, config.uischema, config.data, engine_opts)
 
     {:ok, state} = maybe_set_additional_errors(state, config.additional_errors)
 
@@ -79,9 +78,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     scenario = scenario |> String.trim() |> String.downcase()
     config = scenario_config(scenario)
 
-    case Engine.init(config.schema, config.uischema, config.data, %{
-           validation_mode: config.validation_mode
-         }) do
+    engine_opts = Map.merge(%{validation_mode: config.validation_mode}, config.json_forms_opts)
+
+    case Engine.init(config.schema, config.uischema, config.data, engine_opts) do
       {:ok, state} ->
         {:ok, state} = maybe_set_additional_errors(state, config.additional_errors)
         old_state = socket.assigns[:state]
@@ -243,6 +242,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               ]}
             >
               Suggestions
+            </button>
+            <button
+              id="scenario-defaults"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="defaults"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "defaults" && "bg-zinc-900 text-white",
+                @scenario != "defaults" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Defaults
             </button>
             <button
               id="scenario-categorization"
@@ -799,6 +811,41 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     }
   end
 
+  defp defaults_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "name" => %{
+          "type" => "string",
+          "title" => "Name",
+          "default" => "Ada"
+        },
+        "priority" => %{
+          "type" => "integer",
+          "title" => "Priority",
+          "default" => 2
+        },
+        "status" => %{
+          "type" => "string",
+          "title" => "Status",
+          "enum" => ["open", "blocked", "done"],
+          "default" => "open"
+        }
+      }
+    }
+  end
+
+  defp defaults_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{"type" => "Control", "scope" => "#/properties/name"},
+        %{"type" => "Control", "scope" => "#/properties/priority"},
+        %{"type" => "Control", "scope" => "#/properties/status"}
+      ]
+    }
+  end
+
   defp live_component_schema do
     %{
       "type" => "object",
@@ -1268,6 +1315,17 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         "assignee" => "Ada",
         "estimate" => 2,
         "status" => "open"
+      }
+    })
+  end
+
+  defp scenario_config("defaults") do
+    base_config(%{
+      schema: defaults_schema(),
+      uischema: defaults_uischema(),
+      data: %{},
+      json_forms_opts: %{
+        apply_defaults: true
       }
     })
   end
