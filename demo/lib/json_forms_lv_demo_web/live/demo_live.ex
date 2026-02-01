@@ -41,6 +41,8 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       |> assign(:form_group, config.form_group)
       |> assign(:form_group_a, config.form_group_a)
       |> assign(:form_group_b, config.form_group_b)
+      |> assign(:interlinked_version_a, 0)
+      |> assign(:interlinked_version_b, 0)
 
     socket = maybe_sync_array_streams(socket, nil, state, config)
 
@@ -116,6 +118,8 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           |> assign(:form_group, config.form_group)
           |> assign(:form_group_a, config.form_group_a)
           |> assign(:form_group_b, config.form_group_b)
+          |> assign(:interlinked_version_a, 0)
+          |> assign(:interlinked_version_b, 0)
 
         socket = maybe_sync_array_streams(socket, old_state, state, config)
 
@@ -134,6 +138,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
          {:ok, %{path: path, value: value, meta: meta}} <-
            Event.extract_change(params, form_key: form_key),
          {:ok, group} <- FormGroup.dispatch(group, form_id, {:update_data, path, value, meta}) do
+      # Only update the version of the OTHER form to force refresh while keeping focus on active form
+      version_key = if form_id == :a, do: :interlinked_version_b, else: :interlinked_version_a
+
       socket =
         socket
         |> assign(:form_group, group)
@@ -141,6 +148,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         |> assign(:form_group_b, FormGroup.state(group, :b))
         |> assign(:state, FormGroup.state(group, :a))
         |> assign(:data, group.data)
+        |> update(version_key, &((&1 || 0) + 1))
 
       {:noreply, socket}
     else
@@ -220,7 +228,9 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       <section class="space-y-6">
         <div class="space-y-2">
           <h1 class="text-2xl font-semibold">JSON Forms LiveView Demo</h1>
-          <p class="text-sm text-zinc-600">Basic schema-driven form rendering.</p>
+          <p class="text-sm text-zinc-600">
+            Schema-driven forms with validation, rules, i18n, layouts, arrays, and custom renderers.
+          </p>
           <p id="demo-scenario" class="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Scenario: {@scenario}
           </p>
@@ -676,6 +686,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
                   phx-change="form_group_change"
                   phx-value-form="a"
                 >
+                <div id={"demo-interlinked-wrapper-a-#{@interlinked_version_a || 0}"} phx-update="replace">
                   <.json_forms
                     id="demo-interlinked-json-forms-a"
                     schema={@form_group_a.schema}
@@ -692,6 +703,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
                     streams={assigns[:streams]}
                     wrap_form={false}
                   />
+                </div>
                 </.form>
               </div>
               <div class="space-y-3 rounded-lg border border-zinc-200 p-4">
@@ -702,6 +714,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
                   phx-change="form_group_change"
                   phx-value-form="b"
                 >
+                <div id={"demo-interlinked-wrapper-b-#{@interlinked_version_b || 0}"} phx-update="replace">
                   <.json_forms
                     id="demo-interlinked-json-forms-b"
                     schema={@form_group_b.schema}
@@ -718,6 +731,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
                     streams={assigns[:streams]}
                     wrap_form={false}
                   />
+                </div>
                 </.form>
               </div>
             </div>
@@ -751,24 +765,26 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           <% end %>
         </div>
 
-        <div id="demo-live-component" class="space-y-3 rounded-lg border border-zinc-200 p-4">
-          <div class="space-y-1">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">
-              LiveComponent
-            </h2>
-            <p class="text-xs text-zinc-600">
-              Self-contained JSON Forms component with its own state.
-            </p>
+        <%= if @scenario != "interlinked" do %>
+          <div id="demo-live-component" class="space-y-3 rounded-lg border border-zinc-200 p-4">
+            <div class="space-y-1">
+              <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+                LiveComponent
+              </h2>
+              <p class="text-xs text-zinc-600">
+                Self-contained JSON Forms component with its own state.
+              </p>
+            </div>
+            <.live_component
+              module={JsonFormsLV.Phoenix.LiveComponent}
+              id="demo-json-forms-component"
+              schema={live_component_schema()}
+              uischema={live_component_uischema()}
+              data={live_component_data()}
+              opts={%{validate_on: :blur}}
+            />
           </div>
-          <.live_component
-            module={JsonFormsLV.Phoenix.LiveComponent}
-            id="demo-json-forms-component"
-            schema={live_component_schema()}
-            uischema={live_component_uischema()}
-            data={live_component_data()}
-            opts={%{validate_on: :blur}}
-          />
-        </div>
+        <% end %>
 
         <%= if @state.submitted do %>
           <div class="space-y-2">
