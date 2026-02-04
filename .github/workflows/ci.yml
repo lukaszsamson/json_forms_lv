@@ -2,39 +2,127 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
+
+env:
+  MIX_ENV: test
 
 jobs:
   test:
+    name: Test (OTP ${{ matrix.otp }} / Elixir ${{ matrix.elixir }})
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: "1.15"
+            otp: "25"
+          - elixir: "1.17"
+            otp: "27"
+          - elixir: "1.19"
+            otp: "28"
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          otp-version: "26.2"
-          elixir-version: "1.15.7"
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
 
-      - name: Install deps (root)
+      - name: Restore deps cache
+        uses: actions/cache@v5
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ matrix.otp }}-${{ matrix.elixir }}-
+
+      - name: Restore build cache
+        uses: actions/cache@v5
+        with:
+          path: _build
+          key: ${{ runner.os }}-build-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ matrix.otp }}-${{ matrix.elixir }}-
+
+      - name: Install dependencies
         run: mix deps.get
 
-      - name: Check format (root)
-        run: mix format --check-formatted
+      - name: Compile
+        run: mix compile --warnings-as-errors
 
-      - name: Run tests (root)
+      - name: Run tests
         run: mix test
 
-      - name: Install deps (demo)
+  dialyzer:
+    name: Dialyzer
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19"
+          otp-version: "28"
+
+      - name: Restore deps cache
+        uses: actions/cache@v5
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-28-1.19-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-28-1.19-
+
+      - name: Restore build cache
+        uses: actions/cache@v5
+        with:
+          path: _build
+          key: ${{ runner.os }}-build-28-1.19-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-28-1.19-
+
+      - name: Restore PLT cache
+        uses: actions/cache@v4
+        id: plt-cache
+        with:
+          path: _build/dev/*.plt
+          key: ${{ runner.os }}-plt-28-1.19-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-plt-28-1.19-
+
+      - name: Install dependencies
         run: mix deps.get
-        working-directory: demo
 
-      - name: Check format (demo)
+      - name: Run Dialyzer
+        run: mix dialyzer
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19"
+          otp-version: "28"
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Check formatting
         run: mix format --check-formatted
-        working-directory: demo
-
-      - name: Run tests (demo)
-        run: mix test
-        working-directory: demo
