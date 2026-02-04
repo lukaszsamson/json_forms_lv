@@ -1,15 +1,19 @@
 defmodule JsonFormsLV.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+  @source_url "https://github.com/lukaszsamson/json_forms_lv"
+
   def project do
     [
       app: :json_forms_lv,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       name: "JsonFormsLV",
+      package: package(),
       description: "Server-side JSON Forms 3.x renderer for Phoenix LiveView",
       docs: docs()
     ]
@@ -36,6 +40,17 @@ defmodule JsonFormsLV.MixProject do
       {:req, "~> 0.5"},
       {:ex_doc, "~> 0.30", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: :dev, runtime: false}
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Łukasz Samson"],
+      licenses: ["Apache-2.0"],
+      links: %{
+        "GitHub" => @source_url
+      },
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE)
     ]
   end
 
