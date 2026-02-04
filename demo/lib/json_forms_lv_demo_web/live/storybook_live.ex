@@ -11,12 +11,15 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
   @scenarios [
     {"basic", "Basic"},
     {"control", "Control"},
+    {"control-options", "Control Options"},
     {"categorization", "Categorization"},
     {"layouts", "Layouts"},
     {"array", "Array"},
     {"rule", "Rule"},
     {"custom-controls", "Custom Controls"},
-    {"combinators", "Combinators"},
+    {"combinators-oneof", "oneOf"},
+    {"combinators-anyof", "anyOf"},
+    {"combinators-allof", "allOf"},
     {"list-with-detail", "List With Detail"},
     {"autocomplete-enum", "Autocomplete Enum"},
     {"autocomplete-oneof", "Autocomplete OneOf"},
@@ -25,23 +28,56 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
   ]
 
   @impl true
-  def mount(_params, _session, socket) do
-    config = scenario_config("basic")
+  def mount(params, _session, socket) do
+    # Register custom cells for the storybook
+    custom_cells = [JsonFormsLvDemoWeb.CustomCells.StarRating]
 
+    # Get scenario from params or default to "basic"
+    scenario = Map.get(params, "scenario", "basic") |> String.trim() |> String.downcase()
+    config = scenario_config(scenario)
     {:ok, state} = Engine.init(config.schema, config.uischema, config.data, %{})
 
     socket =
       socket
-      |> assign(:scenario, "basic")
       |> assign(:scenarios, @scenarios)
+      |> assign(:form, to_form(%{}, as: :jf))
+      |> assign(:current_scope, nil)
+      |> assign(:custom_cells, custom_cells)
+      |> assign(:scenario, scenario)
       |> assign(:schema, config.schema)
       |> assign(:uischema, config.uischema)
       |> assign(:state, state)
       |> assign(:data, state.data)
-      |> assign(:form, to_form(%{}, as: :jf))
-      |> assign(:current_scope, nil)
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_params(params, _uri, socket) do
+    scenario = Map.get(params, "scenario", "basic") |> String.trim() |> String.downcase()
+
+    # Skip if already on this scenario
+    if socket.assigns.scenario == scenario do
+      {:noreply, socket}
+    else
+      config = scenario_config(scenario)
+
+      case Engine.init(config.schema, config.uischema, config.data, %{}) do
+        {:ok, state} ->
+          socket =
+            socket
+            |> assign(:scenario, scenario)
+            |> assign(:schema, config.schema)
+            |> assign(:uischema, config.uischema)
+            |> assign(:state, state)
+            |> assign(:data, state.data)
+
+          {:noreply, socket}
+
+        {:error, _reason} ->
+          {:noreply, socket}
+      end
+    end
   end
 
   @impl true
@@ -77,26 +113,70 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
     {:noreply, assign(socket, state: state)}
   end
 
-  def handle_event("select_scenario", %{"scenario" => scenario}, socket) do
-    scenario = scenario |> String.trim() |> String.downcase()
-    config = scenario_config(scenario)
-
-    case Engine.init(config.schema, config.uischema, config.data, %{}) do
+  def handle_event("jf:add_item", %{"path" => path}, socket) do
+    case Engine.add_item(socket.assigns.state, path, %{}) do
       {:ok, state} ->
-        socket =
-          socket
-          |> assign(:scenario, scenario)
-          |> assign(:schema, config.schema)
-          |> assign(:uischema, config.uischema)
-          |> assign(:state, state)
-          |> assign(:data, state.data)
-          |> assign(:form, to_form(%{}, as: :jf))
-
-        {:noreply, socket}
+        {:noreply, assign(socket, state: state, data: state.data)}
 
       {:error, _reason} ->
         {:noreply, socket}
     end
+  end
+
+  def handle_event("jf:remove_item", %{"path" => path, "index" => index}, socket) do
+    case Engine.remove_item(socket.assigns.state, path, index) do
+      {:ok, state} ->
+        {:noreply, assign(socket, state: state, data: state.data)}
+
+      {:error, _reason} ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("jf:move_item", %{"path" => path, "from" => from, "to" => to}, socket) do
+    case Engine.move_item(socket.assigns.state, path, from, to) do
+      {:ok, state} ->
+        {:noreply, assign(socket, state: state, data: state.data)}
+
+      {:error, _reason} ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("jf:select_combinator", %{"combinator" => combinator_map} = params, socket)
+      when is_map(combinator_map) do
+    # Extract path and selection from combinator[path] format
+    [{path, selection}] = Map.to_list(combinator_map)
+    kind = Map.get(params, "kind")
+    opts = if kind == "one_of", do: %{clear_data: true}, else: %{}
+    {:ok, state} = Engine.set_combinator(socket.assigns.state, path, selection, opts)
+    {:noreply, assign(socket, state: state, data: state.data)}
+  end
+
+  def handle_event("jf:select_combinator", %{"path" => path} = params, socket) do
+    selection = Map.get(params, "selection") || Map.get(params, "value")
+    kind = Map.get(params, "kind")
+    # For oneOf, clear data when switching tabs; anyOf just switches view without clearing
+    opts = if kind == "one_of", do: %{clear_data: true}, else: %{}
+    {:ok, state} = Engine.set_combinator(socket.assigns.state, path, selection, opts)
+    {:noreply, assign(socket, state: state, data: state.data)}
+  end
+
+  def handle_event("jf:select_combinator", _params, socket) do
+    # Fallback - combinator switching not fully working yet
+    {:noreply, socket}
+  end
+
+  def handle_event("jf:star_click", %{"path" => path, "rating" => rating}, socket) do
+    # Convert rating to integer and update data
+    value = String.to_integer(rating)
+    {:ok, state} = Engine.update_data(socket.assigns.state, path, value, %{})
+    {:noreply, assign(socket, state: state, data: state.data)}
+  end
+
+  def handle_event("select_scenario", %{"scenario" => scenario}, socket) do
+    scenario = scenario |> String.trim() |> String.downcase()
+    {:noreply, push_patch(socket, to: ~p"/storybook?scenario=#{scenario}")}
   end
 
   def handle_event(_event, _params, socket), do: {:noreply, socket}
@@ -145,15 +225,17 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
             <.json_forms
               id="storybook-json-forms"
               schema={@schema}
-              uischema={@uischema}
+              uischema={@state.uischema}
               data={@data}
               state={@state}
+              cells={@custom_cells}
               wrap_form={false}
             />
 
             <button
               id="storybook-json-forms-submit"
               type="submit"
+              tabindex="0"
               class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white mt-4"
             >
               Submit
@@ -207,7 +289,7 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
             <pre
               id="debug-uischema"
               class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto max-h-64"
-            >{Jason.encode!(@uischema, pretty: true)}</pre>
+            >{Jason.encode!(@state.uischema, pretty: true)}</pre>
           </div>
         </div>
 
@@ -229,12 +311,15 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
 
   defp scenario_config("basic"), do: base_config(basic_example())
   defp scenario_config("control"), do: base_config(control_example())
+  defp scenario_config("control-options"), do: base_config(control_options_example())
   defp scenario_config("categorization"), do: base_config(categorization_example())
   defp scenario_config("layouts"), do: base_config(layouts_example())
   defp scenario_config("array"), do: base_config(array_example())
   defp scenario_config("rule"), do: base_config(rule_example())
   defp scenario_config("custom-controls"), do: base_config(custom_controls_example())
-  defp scenario_config("combinators"), do: base_config(combinators_example())
+  defp scenario_config("combinators-oneof"), do: base_config(combinators_oneof_example())
+  defp scenario_config("combinators-anyof"), do: base_config(combinators_anyof_example())
+  defp scenario_config("combinators-allof"), do: base_config(combinators_allof_example())
   defp scenario_config("list-with-detail"), do: base_config(list_with_detail_example())
   defp scenario_config("autocomplete-enum"), do: base_config(autocomplete_enum_example())
   defp scenario_config("autocomplete-oneof"), do: base_config(autocomplete_oneof_example())
@@ -373,6 +458,102 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
         "time" => "23:08:00",
         "dateTime" => "2020-06-25T23:08:42",
         "enum" => "Two"
+      }
+    }
+  end
+
+  # ============================================================================
+  # Control Options Example (jsonforms.io/examples/control - second part)
+  # ============================================================================
+
+  defp control_options_example do
+    %{
+      schema: %{
+        "type" => "object",
+        "properties" => %{
+          "multilineString" => %{
+            "type" => "string",
+            "description" => "Multiline Example"
+          },
+          "slider" => %{
+            "type" => "number",
+            "minimum" => 1,
+            "maximum" => 5,
+            "default" => 2,
+            "description" => "Slider Example"
+          },
+          "trimText" => %{
+            "type" => "string",
+            "description" =>
+              "Trim indicates whether the control shall grab the full width available"
+          },
+          "restrictText" => %{
+            "type" => "string",
+            "maxLength" => 5,
+            "description" => "Restricts the input length to the set value (in this case: 5)"
+          },
+          "unfocusedDescription" => %{
+            "type" => "string",
+            "description" => "This description is shown even when the control is not focused"
+          },
+          "hideRequiredAsterisk" => %{
+            "type" => "string",
+            "description" => "Hides the \"*\" symbol, when the field is required"
+          },
+          "toggle" => %{
+            "type" => "boolean",
+            "description" => "The \"toggle\" option renders boolean values as a toggle."
+          }
+        },
+        "required" => ["hideRequiredAsterisk", "restrictText"]
+      },
+      uischema: %{
+        "type" => "VerticalLayout",
+        "elements" => [
+          %{
+            "type" => "Control",
+            "scope" => "#/properties/multilineString",
+            "options" => %{"multi" => true}
+          },
+          %{
+            "type" => "Control",
+            "scope" => "#/properties/slider",
+            "options" => %{"slider" => true}
+          },
+          %{
+            "type" => "Control",
+            "scope" => "#/properties/trimText",
+            "options" => %{"trim" => true}
+          },
+          %{
+            "type" => "Control",
+            "scope" => "#/properties/restrictText",
+            "options" => %{"restrict" => true}
+          },
+          %{
+            "type" => "Control",
+            "scope" => "#/properties/unfocusedDescription",
+            "options" => %{"showUnfocusedDescription" => true}
+          },
+          %{
+            "type" => "Control",
+            "scope" => "#/properties/hideRequiredAsterisk",
+            "options" => %{"hideRequiredAsterisk" => true}
+          },
+          %{
+            "type" => "Control",
+            "scope" => "#/properties/toggle",
+            "label" => "Boolean as Toggle",
+            "options" => %{"toggle" => true}
+          }
+        ]
+      },
+      data: %{
+        "multilineString" => "Multi-\nline\nexample",
+        "slider" => 4,
+        "trimText" => "abcdefg",
+        "restrictText" => "abcde",
+        "toggle" => false
       }
     }
   end
@@ -565,31 +746,84 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
         "required" => ["occupation", "nationality"]
       },
       uischema: %{
-        "type" => "Group",
-        "label" => "My Group",
+        "type" => "VerticalLayout",
         "elements" => [
+          # 1. Horizontal Layout
+          %{"type" => "Label", "text" => "1. Horizontal Layout (side-by-side)"},
           %{
             "type" => "HorizontalLayout",
             "elements" => [
+              %{"type" => "Control", "label" => "Name", "scope" => "#/properties/name"},
+              %{"type" => "Control", "label" => "Birth Date", "scope" => "#/properties/birthDate"}
+            ]
+          },
+          # 2. Vertical Layout
+          %{"type" => "Label", "text" => "2. Vertical Layout (stacked)"},
+          %{
+            "type" => "VerticalLayout",
+            "elements" => [
               %{
-                "type" => "VerticalLayout",
+                "type" => "Control",
+                "label" => "Occupation",
+                "scope" => "#/properties/occupation"
+              },
+              %{
+                "type" => "Control",
+                "label" => "Nationality",
+                "scope" => "#/properties/nationality"
+              }
+            ]
+          },
+          # 3. Group
+          %{"type" => "Label", "text" => "3. Group (labeled container)"},
+          %{
+            "type" => "Group",
+            "label" => "Personal Data",
+            "elements" => [
+              %{
+                "type" => "Control",
+                "label" => "Age",
+                "scope" => "#/properties/personalData/properties/age"
+              },
+              %{
+                "type" => "Control",
+                "label" => "Height",
+                "scope" => "#/properties/personalData/properties/height"
+              }
+            ]
+          },
+          # 4. Nested Layouts (proper grid alignment with rows as HorizontalLayouts)
+          %{
+            "type" => "Label",
+            "text" => "4. Nested Layouts (Group with multiple HorizontalLayout rows)"
+          },
+          %{
+            "type" => "Group",
+            "label" => "Nested Example",
+            "elements" => [
+              %{
+                "type" => "HorizontalLayout",
                 "elements" => [
                   %{"type" => "Control", "label" => "Name", "scope" => "#/properties/name"},
                   %{
                     "type" => "Control",
-                    "label" => "Birth Date",
-                    "scope" => "#/properties/birthDate"
+                    "label" => "Vegetarian",
+                    "scope" => "#/properties/vegetarian"
                   }
                 ]
               },
               %{
-                "type" => "VerticalLayout",
+                "type" => "HorizontalLayout",
                 "elements" => [
-                  %{"type" => "Control", "label" => "Name", "scope" => "#/properties/name"},
                   %{
                     "type" => "Control",
                     "label" => "Birth Date",
                     "scope" => "#/properties/birthDate"
+                  },
+                  %{
+                    "type" => "Control",
+                    "label" => "Postal Code",
+                    "scope" => "#/properties/postalCode"
                   }
                 ]
               }
@@ -759,7 +993,11 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
             "scope" => "#/properties/description",
             "options" => %{"multi" => true}
           },
-          %{"type" => "Control", "scope" => "#/properties/rating"},
+          %{
+            "type" => "Control",
+            "scope" => "#/properties/rating",
+            "options" => %{"format" => "rating"}
+          },
           %{"type" => "Control", "scope" => "#/properties/cost"},
           %{"type" => "Control", "scope" => "#/properties/dueDate"}
         ]
@@ -777,40 +1015,44 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
   end
 
   # ============================================================================
-  # Combinators Example (jsonforms.io/examples/combinators)
+  # Combinators Examples (jsonforms.io/examples/combinators)
+  # Three separate scenarios: oneOf, anyOf, allOf
   # ============================================================================
 
-  defp combinators_example do
+  # Shared schemas for combinators
+  defp address_schema do
+    %{
+      "type" => "object",
+      "title" => "Address",
+      "properties" => %{
+        "street_address" => %{"type" => "string"},
+        "city" => %{"type" => "string"},
+        "state" => %{"type" => "string"}
+      },
+      "required" => ["street_address", "city", "state"]
+    }
+  end
+
+  defp user_schema do
+    %{
+      "type" => "object",
+      "title" => "User",
+      "properties" => %{
+        "name" => %{"type" => "string"},
+        "mail" => %{"type" => "string", "format" => "email"}
+      },
+      "required" => ["name", "mail"]
+    }
+  end
+
+  # oneOf: exactly one schema must match - shows tabs to select Address OR User
+  defp combinators_oneof_example do
     %{
       schema: %{
-        "definitions" => %{
-          "address" => %{
-            "type" => "object",
-            "title" => "Address",
-            "properties" => %{
-              "street_address" => %{"type" => "string"},
-              "city" => %{"type" => "string"},
-              "state" => %{"type" => "string"}
-            },
-            "required" => ["street_address", "city", "state"]
-          },
-          "user" => %{
-            "type" => "object",
-            "title" => "User",
-            "properties" => %{
-              "name" => %{"type" => "string"},
-              "mail" => %{"type" => "string"}
-            },
-            "required" => ["name", "mail"]
-          }
-        },
         "type" => "object",
         "properties" => %{
           "addressOrUser" => %{
-            "oneOf" => [
-              %{"$ref" => "#/definitions/address"},
-              %{"$ref" => "#/definitions/user"}
-            ]
+            "oneOf" => [address_schema(), user_schema()]
           }
         }
       },
@@ -819,7 +1061,6 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
         "elements" => [
           %{
             "type" => "Control",
-            "label" => "Basic Information",
             "scope" => "#/properties/addressOrUser"
           }
         ]
@@ -829,6 +1070,68 @@ defmodule JsonFormsLvDemoWeb.StorybookLive do
           "street_address" => "1600 Pennsylvania Avenue NW",
           "city" => "Washington",
           "state" => "DC"
+        }
+      }
+    }
+  end
+
+  # anyOf: one or more schemas can match - shows tabs to select Address and/or User
+  defp combinators_anyof_example do
+    %{
+      schema: %{
+        "type" => "object",
+        "properties" => %{
+          "addressOrUser" => %{
+            "anyOf" => [address_schema(), user_schema()]
+          }
+        }
+      },
+      uischema: %{
+        "type" => "VerticalLayout",
+        "elements" => [
+          %{
+            "type" => "Control",
+            "scope" => "#/properties/addressOrUser"
+          }
+        ]
+      },
+      data: %{
+        "addressOrUser" => %{
+          "street_address" => "1600 Pennsylvania Avenue NW",
+          "city" => "Washington",
+          "state" => "DC"
+        }
+      }
+    }
+  end
+
+  # allOf: all schemas must be satisfied - shows ALL fields combined (no tabs)
+  defp combinators_allof_example do
+    %{
+      schema: %{
+        "type" => "object",
+        "properties" => %{
+          "addressAndUser" => %{
+            "allOf" => [address_schema(), user_schema()]
+          }
+        }
+      },
+      uischema: %{
+        "type" => "VerticalLayout",
+        "elements" => [
+          %{
+            "type" => "Control",
+            "scope" => "#/properties/addressAndUser"
+          }
+        ]
+      },
+      data: %{
+        "addressAndUser" => %{
+          "street_address" => "1600 Pennsylvania Avenue NW",
+          "city" => "Washington",
+          "state" => "DC",
+          "name" => "John Doe",
+          "mail" => "john@example.com"
         }
       }
     }

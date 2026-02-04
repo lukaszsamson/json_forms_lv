@@ -84,6 +84,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                       <button
                         id={"#{@id}-remove-#{index}"}
                         type="button"
+                        tabindex="0"
                         aria-label={"Remove #{@item_labels[index]}"}
                         phx-click="jf:remove_item"
                         phx-value-path={@path}
@@ -97,6 +98,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                         <button
                           id={"#{@id}-move-up-#{index}"}
                           type="button"
+                          tabindex="0"
                           aria-label={"Move #{@item_labels[index]} up"}
                           phx-click="jf:move_item"
                           phx-value-path={@path}
@@ -110,6 +112,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                         <button
                           id={"#{@id}-move-down-#{index}"}
                           type="button"
+                          tabindex="0"
                           aria-label={"Move #{@item_labels[index]} down"}
                           phx-click="jf:move_item"
                           phx-value-path={@path}
@@ -141,6 +144,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                       <button
                         id={"#{@id}-remove-#{index}"}
                         type="button"
+                        tabindex="0"
                         aria-label={"Remove #{@item_labels[index]}"}
                         phx-click="jf:remove_item"
                         phx-value-path={@path}
@@ -154,6 +158,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                         <button
                           id={"#{@id}-move-up-#{index}"}
                           type="button"
+                          tabindex="0"
                           aria-label={"Move #{@item_labels[index]} up"}
                           phx-click="jf:move_item"
                           phx-value-path={@path}
@@ -167,6 +172,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
                         <button
                           id={"#{@id}-move-down-#{index}"}
                           type="button"
+                          tabindex="0"
                           aria-label={"Move #{@item_labels[index]} down"}
                           phx-click="jf:move_item"
                           phx-value-path={@path}
@@ -191,6 +197,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ArrayControl do
           <button
             id={"#{@id}-add"}
             type="button"
+            tabindex="0"
             aria-label={@add_aria_label}
             phx-click="jf:add_item"
             phx-value-path={@path}

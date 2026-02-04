@@ -205,6 +205,17 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     end
   end
 
+  def handle_event("jf:select_combinator", %{"path" => path} = params, socket) do
+    selection = Map.get(params, "selection") || Map.get(params, "value")
+    kind = Map.get(params, "kind")
+
+    # For oneOf, clear data when switching tabs; anyOf just switches view without clearing
+    opts = if kind == "one_of", do: %{clear_data: true}, else: %{}
+
+    {:ok, state} = Engine.set_combinator(socket.assigns.state, path, selection, opts)
+    {:noreply, assign(socket, state: state, data: state.data)}
+  end
+
   def handle_event("set_validation_mode", %{"mode" => mode}, socket) do
     validation_mode =
       case String.trim(mode) do
@@ -448,6 +459,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               Arrays registered
             </button>
             <button
+              id="scenario-arrays-generated"
+              type="button"
+              phx-click="select_scenario"
+              phx-value-scenario="arrays-generated"
+              class={[
+                "rounded-full px-3 py-1 text-sm font-semibold transition",
+                @scenario == "arrays-generated" && "bg-zinc-900 text-white",
+                @scenario != "arrays-generated" && "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              ]}
+            >
+              Arrays generated
+            </button>
+            <button
               id="scenario-i18n"
               type="button"
               phx-click="select_scenario"
@@ -686,24 +710,27 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
                   phx-change="form_group_change"
                   phx-value-form="a"
                 >
-                <div id={"demo-interlinked-wrapper-a-#{@interlinked_version_a || 0}"} phx-update="replace">
-                  <.json_forms
-                    id="demo-interlinked-json-forms-a"
-                    schema={@form_group_a.schema}
-                    uischema={@form_group_a.uischema}
-                    data={@form_group_a.data}
-                    state={@form_group_a}
-                    readonly={@readonly}
-                    i18n={@i18n}
-                    validation_mode={@validation_mode}
-                    binding={:form_level}
-                    renderers={@json_forms_renderers}
-                    cells={@json_forms_cells}
-                    opts={@json_forms_opts}
-                    streams={assigns[:streams]}
-                    wrap_form={false}
-                  />
-                </div>
+                  <div
+                    id={"demo-interlinked-wrapper-a-#{@interlinked_version_a || 0}"}
+                    phx-update="replace"
+                  >
+                    <.json_forms
+                      id="demo-interlinked-json-forms-a"
+                      schema={@form_group_a.schema}
+                      uischema={@form_group_a.uischema}
+                      data={@form_group_a.data}
+                      state={@form_group_a}
+                      readonly={@readonly}
+                      i18n={@i18n}
+                      validation_mode={@validation_mode}
+                      binding={:form_level}
+                      renderers={@json_forms_renderers}
+                      cells={@json_forms_cells}
+                      opts={@json_forms_opts}
+                      streams={assigns[:streams]}
+                      wrap_form={false}
+                    />
+                  </div>
                 </.form>
               </div>
               <div class="space-y-3 rounded-lg border border-zinc-200 p-4">
@@ -714,24 +741,27 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
                   phx-change="form_group_change"
                   phx-value-form="b"
                 >
-                <div id={"demo-interlinked-wrapper-b-#{@interlinked_version_b || 0}"} phx-update="replace">
-                  <.json_forms
-                    id="demo-interlinked-json-forms-b"
-                    schema={@form_group_b.schema}
-                    uischema={@form_group_b.uischema}
-                    data={@form_group_b.data}
-                    state={@form_group_b}
-                    readonly={@readonly}
-                    i18n={@i18n}
-                    validation_mode={@validation_mode}
-                    binding={:form_level}
-                    renderers={@json_forms_renderers}
-                    cells={@json_forms_cells}
-                    opts={@json_forms_opts}
-                    streams={assigns[:streams]}
-                    wrap_form={false}
-                  />
-                </div>
+                  <div
+                    id={"demo-interlinked-wrapper-b-#{@interlinked_version_b || 0}"}
+                    phx-update="replace"
+                  >
+                    <.json_forms
+                      id="demo-interlinked-json-forms-b"
+                      schema={@form_group_b.schema}
+                      uischema={@form_group_b.uischema}
+                      data={@form_group_b.data}
+                      state={@form_group_b}
+                      readonly={@readonly}
+                      i18n={@i18n}
+                      validation_mode={@validation_mode}
+                      binding={:form_level}
+                      renderers={@json_forms_renderers}
+                      cells={@json_forms_cells}
+                      opts={@json_forms_opts}
+                      streams={assigns[:streams]}
+                      wrap_form={false}
+                    />
+                  </div>
                 </.form>
               </div>
             </div>
@@ -757,6 +787,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
               <button
                 id="demo-json-forms-submit"
                 type="submit"
+                tabindex="0"
                 class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white"
               >
                 Submit
@@ -764,27 +795,6 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
             </.form>
           <% end %>
         </div>
-
-        <%= if @scenario != "interlinked" do %>
-          <div id="demo-live-component" class="space-y-3 rounded-lg border border-zinc-200 p-4">
-            <div class="space-y-1">
-              <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">
-                LiveComponent
-              </h2>
-              <p class="text-xs text-zinc-600">
-                Self-contained JSON Forms component with its own state.
-              </p>
-            </div>
-            <.live_component
-              module={JsonFormsLV.Phoenix.LiveComponent}
-              id="demo-json-forms-component"
-              schema={live_component_schema()}
-              uischema={live_component_uischema()}
-              data={live_component_data()}
-              opts={%{validate_on: :blur}}
-            />
-          </div>
-        <% end %>
 
         <%= if @state.submitted do %>
           <div class="space-y-2">
@@ -828,15 +838,47 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           </pre>
         </div>
 
-        <div class="space-y-2">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">UISchema</h2>
-          <pre
-            id="debug-uischema"
-            class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto"
-          >
-            {Jason.encode!(@state.uischema, pretty: true)}
-          </pre>
-        </div>
+        <%= if @scenario == "remote-uischema" do %>
+          <div class="space-y-2">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+              1. Original UISchema (with $ref)
+            </h2>
+            <pre class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto">
+              {Jason.encode!(remote_uischema_uischema(), pretty: true)}
+            </pre>
+          </div>
+
+          <div class="space-y-2">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+              2. Remote Document (returned by uischema_ref_loader)
+            </h2>
+            <pre class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto">
+              {Jason.encode!(remote_uischema_doc(), pretty: true)}
+            </pre>
+          </div>
+
+          <div class="space-y-2">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+              3. Resolved UISchema (after $ref resolution)
+            </h2>
+            <pre
+              id="debug-uischema"
+              class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto"
+            >
+              {Jason.encode!(@state.uischema, pretty: true)}
+            </pre>
+          </div>
+        <% else %>
+          <div class="space-y-2">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-600">UISchema</h2>
+            <pre
+              id="debug-uischema"
+              class="rounded-lg bg-zinc-900 text-zinc-100 p-4 text-xs overflow-auto"
+            >
+              {Jason.encode!(@state.uischema, pretty: true)}
+            </pre>
+          </div>
+        <% end %>
       </section>
     </Layouts.app>
     """
@@ -863,18 +905,24 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "object",
       "properties" => %{
-        "show_details" => %{
-          "type" => "boolean",
-          "title" => "Show details",
-          "default" => false
-        },
-        "details" => %{"type" => "string", "title" => "Details", "minLength" => 1},
-        "disable_fields" => %{"type" => "boolean", "title" => "Disable fields"},
-        "locked_note" => %{"type" => "string", "title" => "Locked note"},
+        # SHOW rule fields
+        "show_flag" => %{"type" => "boolean", "title" => "Show field"},
+        "show_note" => %{"type" => "string", "title" => "Shown note"},
+        # HIDE rule fields
+        "hide_flag" => %{"type" => "boolean", "title" => "Hide field"},
+        "hide_note" => %{"type" => "string", "title" => "Hidden note"},
+        # ENABLE rule fields
+        "enable_flag" => %{"type" => "boolean", "title" => "Enable field"},
+        "enable_note" => %{"type" => "string", "title" => "Enabled note"},
+        # DISABLE rule fields
+        "disable_flag" => %{"type" => "boolean", "title" => "Disable field"},
+        "disable_note" => %{"type" => "string", "title" => "Disabled note"},
+        # Composed conditions fields
         "and_flag" => %{"type" => "boolean", "title" => "Flag A"},
         "or_flag" => %{"type" => "boolean", "title" => "Flag B"},
         "and_note" => %{"type" => "string", "title" => "All conditions met"},
         "or_note" => %{"type" => "string", "title" => "Any condition met"},
+        # failWhenUndefined fields
         "advanced_flag" => %{"type" => "boolean", "title" => "Advanced mode"},
         "advanced_note" => %{"type" => "string", "title" => "Advanced note"}
       }
@@ -884,38 +932,64 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   defp formats_schema do
     %{
       "type" => "object",
-      "required" => ["status", "priority", "start_date"],
       "properties" => %{
-        "status" => %{
+        # Basic types
+        "name" => %{
           "type" => "string",
-          "title" => "Status",
-          "description" => "Current status",
-          "enum" => ["active", "paused", "closed"]
+          "title" => "Text"
         },
-        "priority" => %{
+        "age" => %{
           "type" => "integer",
-          "title" => "Priority",
-          "enum" => [1, 2, 3]
+          "title" => "Integer"
+        },
+        "price" => %{
+          "type" => "number",
+          "title" => "Number"
+        },
+        "subscribed" => %{
+          "type" => "boolean",
+          "title" => "Boolean"
+        },
+        # String formats
+        "email" => %{
+          "type" => "string",
+          "title" => "Email",
+          "format" => "email"
         },
         "start_date" => %{
           "type" => "string",
-          "title" => "Start date",
-          "format" => "date",
-          "minLength" => 10
+          "title" => "Date",
+          "format" => "date"
         },
         "start_time" => %{
           "type" => "string",
-          "title" => "Start time",
+          "title" => "Time",
           "format" => "time"
         },
         "meeting" => %{
           "type" => "string",
-          "title" => "Meeting time",
+          "title" => "DateTime",
           "format" => "date-time"
         },
         "notes" => %{
           "type" => "string",
-          "title" => "Notes"
+          "title" => "Textarea"
+        },
+        # Enum types
+        "status" => %{
+          "type" => "string",
+          "title" => "Enum (select)",
+          "enum" => ["active", "paused", "closed"]
+        },
+        "status_radio" => %{
+          "type" => "string",
+          "title" => "Enum (radio)",
+          "enum" => ["active", "paused", "closed"]
+        },
+        "priority" => %{
+          "type" => "integer",
+          "title" => "Integer enum",
+          "enum" => [1, 2, 3]
         }
       }
     }
@@ -964,30 +1038,34 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
 
   defp formats_uischema do
     %{
-      "type" => "Group",
-      "label" => "Project details",
-      "i18n" => "project",
+      "type" => "VerticalLayout",
       "elements" => [
-        %{
-          "type" => "Label",
-          "text" => "Schedule",
-          "id" => "i18n-welcome",
-          "i18n" => "project.schedule"
-        },
-        %{
-          "type" => "Control",
-          "scope" => "#/properties/status",
-          "options" => %{"format" => "radio"}
-        },
-        %{"type" => "Control", "scope" => "#/properties/priority"},
+        # Basic types
+        %{"type" => "Label", "text" => "Basic types"},
+        %{"type" => "Control", "scope" => "#/properties/name"},
+        %{"type" => "Control", "scope" => "#/properties/age"},
+        %{"type" => "Control", "scope" => "#/properties/price"},
+        %{"type" => "Control", "scope" => "#/properties/subscribed"},
+        # String formats
+        %{"type" => "Label", "text" => "String formats"},
+        %{"type" => "Control", "scope" => "#/properties/email"},
         %{"type" => "Control", "scope" => "#/properties/start_date"},
         %{"type" => "Control", "scope" => "#/properties/start_time"},
         %{"type" => "Control", "scope" => "#/properties/meeting"},
         %{
           "type" => "Control",
           "scope" => "#/properties/notes",
-          "options" => %{"multi" => true, "placeholder" => "Add meeting notes"}
-        }
+          "options" => %{"multi" => true}
+        },
+        # Enum types
+        %{"type" => "Label", "text" => "Enum types"},
+        %{"type" => "Control", "scope" => "#/properties/status"},
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/status_radio",
+          "options" => %{"format" => "radio"}
+        },
+        %{"type" => "Control", "scope" => "#/properties/priority"}
       ]
     }
   end
@@ -1032,16 +1110,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         "name" => %{
           "type" => "string",
           "title" => "Name",
+          "description" => "default: \"Ada\"",
           "default" => "Ada"
         },
         "priority" => %{
           "type" => "integer",
           "title" => "Priority",
+          "description" => "default: 2",
           "default" => 2
         },
         "status" => %{
           "type" => "string",
           "title" => "Status",
+          "description" => "default: \"open\"",
           "enum" => ["open", "blocked", "done"],
           "default" => "open"
         }
@@ -1053,6 +1134,10 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "VerticalLayout",
       "elements" => [
+        %{
+          "type" => "Label",
+          "text" => "Initial data is empty, but fields are pre-filled from schema defaults"
+        },
         %{"type" => "Control", "scope" => "#/properties/name"},
         %{"type" => "Control", "scope" => "#/properties/priority"},
         %{"type" => "Control", "scope" => "#/properties/status"}
@@ -1072,7 +1157,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       "definitions" => %{
         "remote" => %{
           "type" => "Group",
-          "label" => "Remote UI",
+          "label" => "Loaded from Remote UISchema",
           "elements" => [
             %{"type" => "Control", "scope" => "#/properties/name"},
             %{"type" => "Control", "scope" => "#/properties/age"},
@@ -1091,6 +1176,14 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
           "type" => "string",
           "title" => "Mode",
           "enum" => ["basic", "advanced"]
+        },
+        "summary" => %{
+          "type" => "string",
+          "title" => "Basic summary"
+        },
+        "details" => %{
+          "type" => "string",
+          "title" => "Advanced details"
         }
       },
       "if" => %{
@@ -1099,21 +1192,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         }
       },
       "then" => %{
-        "properties" => %{
-          "details" => %{
-            "type" => "string",
-            "title" => "Advanced details"
-          }
-        },
         "required" => ["details"]
-      },
-      "else" => %{
-        "properties" => %{
-          "summary" => %{
-            "type" => "string",
-            "title" => "Basic summary"
-          }
-        }
       }
     }
   end
@@ -1122,9 +1201,33 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "VerticalLayout",
       "elements" => [
+        %{
+          "type" => "Label",
+          "text" => "Select mode to conditionally show/require fields"
+        },
         %{"type" => "Control", "scope" => "#/properties/mode"},
-        %{"type" => "Control", "scope" => "#/properties/summary"},
-        %{"type" => "Control", "scope" => "#/properties/details"}
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/summary",
+          "rule" => %{
+            "effect" => "SHOW",
+            "condition" => %{
+              "scope" => "#/properties/mode",
+              "schema" => %{"const" => "basic"}
+            }
+          }
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/details",
+          "rule" => %{
+            "effect" => "SHOW",
+            "condition" => %{
+              "scope" => "#/properties/mode",
+              "schema" => %{"const" => "advanced"}
+            }
+          }
+        }
       ]
     }
   end
@@ -1288,63 +1391,64 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   end
 
   defp combinators_schema do
+    # JSON Schema combinators demo
+    # See: https://jsonforms.io/docs/multiple-choice
     %{
       "type" => "object",
       "properties" => %{
-        "contact" => %{
-          "title" => "Contact",
+        # oneOf single-select - dropdown with custom labels
+        "priority" => %{
+          "title" => "Priority (oneOf)",
+          "type" => "string",
           "oneOf" => [
-            %{
-              "title" => "Email",
-              "type" => "object",
-              "properties" => %{
-                "email" => %{"type" => "string", "format" => "email"}
-              }
-            },
-            %{
-              "title" => "Phone",
-              "type" => "object",
-              "properties" => %{
-                "phone" => %{"type" => "string"}
-              }
-            }
+            %{"const" => "low", "title" => "Low"},
+            %{"const" => "medium", "title" => "Medium"},
+            %{"const" => "high", "title" => "High"}
           ]
         },
-        "preferences" => %{
-          "title" => "Preferences",
-          "anyOf" => [
-            %{
-              "title" => "Newsletter",
-              "type" => "object",
-              "properties" => %{
-                "newsletter" => %{"type" => "boolean"}
-              }
-            },
-            %{
-              "title" => "Alerts",
-              "type" => "object",
-              "properties" => %{
-                "alerts" => %{"type" => "boolean"}
-              }
-            }
-          ]
+        # oneOf multi-select - array with uniqueItems
+        "tags" => %{
+          "title" => "Tags (oneOf multi)",
+          "type" => "array",
+          "uniqueItems" => true,
+          "items" => %{
+            "oneOf" => [
+              %{"const" => "frontend", "title" => "Frontend"},
+              %{"const" => "backend", "title" => "Backend"},
+              %{"const" => "devops", "title" => "DevOps"}
+            ]
+          }
         },
-        "profile" => %{
-          "title" => "Profile",
+        # enum single-select - dropdown with raw values
+        "status" => %{
+          "title" => "Status (enum)",
+          "type" => "string",
+          "enum" => ["draft", "published", "archived"]
+        },
+        # enum multi-select - array with uniqueItems
+        "categories" => %{
+          "title" => "Categories (enum multi)",
+          "type" => "array",
+          "uniqueItems" => true,
+          "items" => %{
+            "type" => "string",
+            "enum" => ["tech", "business", "design"]
+          }
+        },
+        # allOf merges schemas
+        "person" => %{
+          "title" => "Person (allOf)",
           "allOf" => [
             %{
-              "title" => "Name",
               "type" => "object",
               "properties" => %{
-                "first" => %{"type" => "string"},
-                "last" => %{"type" => "string"}
+                "name" => %{"type" => "string", "title" => "Name"}
               }
             },
             %{
-              "title" => "Location",
               "type" => "object",
               "properties" => %{
-                "city" => %{"type" => "string"}
+                "age" => %{"type" => "integer", "title" => "Age"}
               }
             }
           ]
@@ -1357,9 +1461,31 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "VerticalLayout",
       "elements" => [
-        %{"type" => "Control", "scope" => "#/properties/contact"},
-        %{"type" => "Control", "scope" => "#/properties/preferences"},
-        %{"type" => "Control", "scope" => "#/properties/profile"}
+        %{
+          "type" => "Label",
+          "text" => "oneOf: Dropdown with custom labels (value=low, label=Low)"
+        },
+        %{"type" => "Control", "scope" => "#/properties/priority"},
+        %{
+          "type" => "Label",
+          "text" => "oneOf + array: Multi-select with custom labels"
+        },
+        %{"type" => "Control", "scope" => "#/properties/tags"},
+        %{
+          "type" => "Label",
+          "text" => "enum: Dropdown with raw values"
+        },
+        %{"type" => "Control", "scope" => "#/properties/status"},
+        %{
+          "type" => "Label",
+          "text" => "enum + array: Multi-select with raw values"
+        },
+        %{"type" => "Control", "scope" => "#/properties/categories"},
+        %{
+          "type" => "Label",
+          "text" => "allOf: Merges schemas (Name from schema1 + Age from schema2)"
+        },
+        %{"type" => "Control", "scope" => "#/properties/person"}
       ]
     }
   end
@@ -1396,45 +1522,6 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
         %{"type" => "Control", "scope" => "#/properties/status"},
         %{"type" => "Control", "scope" => "#/properties/note"}
       ]
-    }
-  end
-
-  defp live_component_schema do
-    %{
-      "type" => "object",
-      "required" => ["title"],
-      "properties" => %{
-        "title" => %{"type" => "string", "title" => "Title", "minLength" => 1},
-        "owner" => %{"type" => "string", "title" => "Owner"},
-        "status" => %{
-          "type" => "string",
-          "title" => "Status",
-          "enum" => ["planned", "active", "complete"]
-        },
-        "due" => %{"type" => "string", "format" => "date", "title" => "Due"}
-      }
-    }
-  end
-
-  defp live_component_uischema do
-    %{
-      "type" => "Group",
-      "label" => "Component form",
-      "elements" => [
-        %{"type" => "Control", "scope" => "#/properties/title"},
-        %{"type" => "Control", "scope" => "#/properties/owner"},
-        %{"type" => "Control", "scope" => "#/properties/status"},
-        %{"type" => "Control", "scope" => "#/properties/due"}
-      ]
-    }
-  end
-
-  defp live_component_data do
-    %{
-      "title" => "Launch plan",
-      "owner" => "Ada",
-      "status" => "active",
-      "due" => "2025-02-15"
     }
   end
 
@@ -1524,6 +1611,10 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "VerticalLayout",
       "elements" => [
+        %{
+          "type" => "Label",
+          "text" => "detail: DEFAULT - auto-generates controls for all properties (Title + Done)"
+        },
         %{
           "type" => "Control",
           "scope" => "#/properties/tasks",
@@ -1615,9 +1706,80 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "VerticalLayout",
       "elements" => [
-        %{"type" => "Control", "scope" => "#/properties/status"},
+        %{
+          "type" => "Label",
+          "text" => "Testers: composable predicates for renderer matching"
+        },
+        %{
+          "type" => "Label",
+          "text" =>
+            "TesterControl matches: all_of([ui_type_is(Control), any_of([scope_ends_with(status), scope_ends_with(priority)]), not_of(scope_ends_with(ignore))])"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/status",
+          "label" => "Status (highlighted - matches scope_ends_with)"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/priority",
+          "label" => "Priority (highlighted - matches scope_ends_with)"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/ignore",
+          "label" => "Ignore (NOT highlighted - excluded by not_of)"
+        }
+      ]
+    }
+  end
+
+  defp i18n_schema do
+    %{
+      "type" => "object",
+      "properties" => %{
+        "status" => %{
+          "type" => "string",
+          "enum" => ["active", "paused", "closed"]
+        },
+        "priority" => %{
+          "type" => "integer",
+          "enum" => [1, 2, 3]
+        },
+        "start_date" => %{
+          "type" => "string",
+          "format" => "date"
+        },
+        "meeting" => %{
+          "type" => "string",
+          "format" => "date-time"
+        },
+        "notes" => %{
+          "type" => "string"
+        }
+      }
+    }
+  end
+
+  defp i18n_uischema do
+    %{
+      "type" => "Group",
+      "label" => "project",
+      "elements" => [
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/status",
+          "options" => %{"format" => "radio"}
+        },
         %{"type" => "Control", "scope" => "#/properties/priority"},
-        %{"type" => "Control", "scope" => "#/properties/ignore"}
+        %{"type" => "Label", "text" => "project.schedule"},
+        %{"type" => "Control", "scope" => "#/properties/start_date"},
+        %{"type" => "Control", "scope" => "#/properties/meeting"},
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/notes",
+          "options" => %{"multi" => true}
+        }
       ]
     }
   end
@@ -1663,9 +1825,17 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       "type" => "VerticalLayout",
       "elements" => [
         %{
+          "type" => "Label",
+          "text" => "Custom cell (ShoutInput): orange border + uppercase preview"
+        },
+        %{
           "type" => "Control",
           "scope" => "#/properties/message",
           "options" => %{"format" => "shout"}
+        },
+        %{
+          "type" => "Label",
+          "text" => "Custom renderer (CalloutControl): gray callout-style wrapper"
         },
         %{
           "type" => "Control",
@@ -1681,11 +1851,41 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       "type" => "VerticalLayout",
       "elements" => [
         %{
+          "type" => "Label",
+          "text" => "detail: REGISTERED - item layout from registry (only shows Title, not Done)"
+        },
+        %{
           "type" => "Control",
           "scope" => "#/properties/tasks",
           "options" => %{
             "detail" => "REGISTERED",
             "detailKey" => "task_detail",
+            "showSortButtons" => true,
+            "elementLabelProp" => "title"
+          }
+        }
+      ]
+    }
+  end
+
+  defp arrays_generated_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "Label",
+          "text" => "detail: GENERATED - explicitly auto-generate controls from schema properties"
+        },
+        %{
+          "type" => "Label",
+          "text" => "Same result as DEFAULT, but explicit. Shows all properties: Title + Done"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/tasks",
+          "options" => %{
+            "detail" => "GENERATED",
+            "showSortButtons" => true,
             "elementLabelProp" => "title"
           }
         }
@@ -1698,8 +1898,12 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       "type" => "object",
       "properties" => %{
         "name" => %{"type" => "string", "title" => "Name"},
-        "code" => %{"type" => "string", "title" => "Immutable", "readOnly" => true},
-        "note" => %{"type" => "string", "title" => "Note"}
+        "schema_readonly" => %{
+          "type" => "string",
+          "title" => "Schema readOnly",
+          "readOnly" => true
+        },
+        "uischema_readonly" => %{"type" => "string", "title" => "UISchema readOnly"}
       }
     }
   end
@@ -1708,11 +1912,52 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "VerticalLayout",
       "elements" => [
-        %{"type" => "Control", "scope" => "#/properties/name"},
-        %{"type" => "Control", "scope" => "#/properties/code"},
+        %{
+          "type" => "Label",
+          "text" => "Toggle affects only Name (others have explicit readOnly)"
+        },
         %{
           "type" => "Control",
-          "scope" => "#/properties/note",
+          "scope" => "#/properties/name",
+          "label" => "Name (component readonly prop)"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/schema_readonly",
+          "label" => "Schema readOnly: true (always readonly)"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/uischema_readonly",
+          "label" => "UISchema options.readOnly: true (always readonly)",
+          "options" => %{"readOnly" => true}
+        }
+      ]
+    }
+  end
+
+  defp readonly_precedence_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "Label",
+          "text" => "Component readonly=false, but schema/uischema readOnly takes precedence"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/name",
+          "label" => "Name (editable - no explicit readOnly)"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/schema_readonly",
+          "label" => "Schema readOnly: true (precedence over component)"
+        },
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/uischema_readonly",
+          "label" => "UISchema readOnly: true (precedence over component)",
           "options" => %{"readOnly" => true}
         }
       ]
@@ -1723,41 +1968,64 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "VerticalLayout",
       "elements" => [
-        %{"type" => "Label", "text" => "Hide rule"},
+        # SHOW rule - field appears when condition is true
+        %{"type" => "Label", "text" => "SHOW rule (field appears when checked)"},
+        %{"type" => "Control", "scope" => "#/properties/show_flag"},
         %{
           "type" => "Control",
-          "scope" => "#/properties/show_details",
-          "id" => "show-details-control"
-        },
-        %{
-          "type" => "Control",
-          "scope" => "#/properties/details",
-          "id" => "details-control",
+          "scope" => "#/properties/show_note",
           "rule" => %{
-            "effect" => "HIDE",
+            "effect" => "SHOW",
             "condition" => %{
-              "scope" => "#/properties/show_details",
-              "schema" => %{"const" => false}
-            }
-          }
-        },
-        %{"type" => "Label", "text" => "Disable rule"},
-        %{
-          "type" => "Control",
-          "scope" => "#/properties/disable_fields"
-        },
-        %{
-          "type" => "Control",
-          "scope" => "#/properties/locked_note",
-          "rule" => %{
-            "effect" => "DISABLE",
-            "condition" => %{
-              "scope" => "#/properties/disable_fields",
+              "scope" => "#/properties/show_flag",
               "schema" => %{"const" => true}
             }
           }
         },
-        %{"type" => "Label", "text" => "Composed conditions"},
+        # HIDE rule - field disappears when condition is true
+        %{"type" => "Label", "text" => "HIDE rule (field disappears when checked)"},
+        %{"type" => "Control", "scope" => "#/properties/hide_flag"},
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/hide_note",
+          "rule" => %{
+            "effect" => "HIDE",
+            "condition" => %{
+              "scope" => "#/properties/hide_flag",
+              "schema" => %{"const" => true}
+            }
+          }
+        },
+        # ENABLE rule - field becomes editable when condition is true
+        %{"type" => "Label", "text" => "ENABLE rule (field becomes editable when checked)"},
+        %{"type" => "Control", "scope" => "#/properties/enable_flag"},
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/enable_note",
+          "rule" => %{
+            "effect" => "ENABLE",
+            "condition" => %{
+              "scope" => "#/properties/enable_flag",
+              "schema" => %{"const" => true}
+            }
+          }
+        },
+        # DISABLE rule - field becomes read-only when condition is true
+        %{"type" => "Label", "text" => "DISABLE rule (field becomes read-only when checked)"},
+        %{"type" => "Control", "scope" => "#/properties/disable_flag"},
+        %{
+          "type" => "Control",
+          "scope" => "#/properties/disable_note",
+          "rule" => %{
+            "effect" => "DISABLE",
+            "condition" => %{
+              "scope" => "#/properties/disable_flag",
+              "schema" => %{"const" => true}
+            }
+          }
+        },
+        # Composed conditions (AND/OR)
+        %{"type" => "Label", "text" => "Composed conditions (AND/OR)"},
         %{"type" => "Control", "scope" => "#/properties/and_flag"},
         %{"type" => "Control", "scope" => "#/properties/or_flag"},
         %{
@@ -1800,11 +2068,12 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
             }
           }
         },
-        %{"type" => "Label", "text" => "failWhenUndefined"},
+        # failWhenUndefined - rule fails (hides field) when referenced value is undefined
         %{
-          "type" => "Control",
-          "scope" => "#/properties/advanced_flag"
+          "type" => "Label",
+          "text" => "failWhenUndefined (field hidden until flag has a value)"
         },
+        %{"type" => "Control", "scope" => "#/properties/advanced_flag"},
         %{
           "type" => "Control",
           "scope" => "#/properties/advanced_note",
@@ -1826,22 +2095,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       schema: rules_schema(),
       uischema: rules_uischema(),
       data: %{
-        "show_details" => false,
-        "details" => "Secret",
-        "disable_fields" => false,
-        "locked_note" => "Read only when locked",
+        "show_flag" => false,
+        "show_note" => "I appear when checked",
+        "hide_flag" => false,
+        "hide_note" => "I disappear when checked",
+        "enable_flag" => false,
+        "enable_note" => "I become editable when checked",
+        "disable_flag" => false,
+        "disable_note" => "I become read-only when checked",
         "and_flag" => false,
         "or_flag" => false,
-        "and_note" => "All flags enabled",
-        "or_note" => "At least one flag enabled"
-      },
-      additional_errors: [
-        %{
-          "instancePath" => "/locked_note",
-          "message" => "External policy review required",
-          "keyword" => "external"
-        }
-      ]
+        "and_note" => "Both flags enabled (AND)",
+        "or_note" => "Either flag enabled (OR)"
+      }
     })
   end
 
@@ -1850,12 +2116,18 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       schema: formats_schema(),
       uischema: formats_uischema(),
       data: %{
-        "status" => "active",
-        "priority" => 1,
+        "name" => "Ada",
+        "age" => 32,
+        "price" => 19.99,
+        "subscribed" => true,
+        "email" => "ada@example.com",
         "start_date" => "2025-01-30",
         "start_time" => "09:30",
         "meeting" => "2025-01-30T10:00",
-        "notes" => ""
+        "notes" => "Meeting notes here",
+        "status" => "active",
+        "status_radio" => "active",
+        "priority" => 1
       }
     })
   end
@@ -1954,9 +2226,11 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       schema: combinators_schema(),
       uischema: combinators_uischema(),
       data: %{
-        "contact" => %{"email" => "ada@lovelace.dev"},
-        "preferences" => %{"newsletter" => true, "alerts" => false},
-        "profile" => %{"first" => "Ada", "last" => "Lovelace", "city" => "London"}
+        "priority" => "medium",
+        "tags" => ["frontend", "backend"],
+        "status" => "published",
+        "categories" => ["tech", "design"],
+        "person" => %{"name" => "Ada", "age" => 36}
       }
     })
   end
@@ -2038,6 +2312,19 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     })
   end
 
+  defp scenario_config("arrays-generated") do
+    base_config(%{
+      schema: arrays_schema(),
+      uischema: arrays_generated_uischema(),
+      data: %{
+        "tasks" => [
+          %{"title" => "Plan", "done" => false},
+          %{"title" => "Build", "done" => true}
+        ]
+      }
+    })
+  end
+
   defp scenario_config("custom") do
     base_config(%{
       schema: custom_schema(),
@@ -2089,15 +2376,14 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
 
   defp scenario_config("i18n") do
     base_config(%{
-      schema: formats_schema(),
-      uischema: formats_uischema(),
+      schema: i18n_schema(),
+      uischema: i18n_uischema(),
       data: %{
         "status" => "active",
-        "priority" => 1,
+        "priority" => 2,
         "start_date" => "2025-01-30",
-        "start_time" => "09:30",
         "meeting" => "2025-01-30T10:00",
-        "notes" => ""
+        "notes" => "Meeting notes"
       },
       locale: "en",
       i18n: demo_i18n("en")
@@ -2108,7 +2394,11 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     base_config(%{
       schema: readonly_schema(),
       uischema: readonly_uischema(),
-      data: %{"name" => "Ada", "code" => "READ-ONLY", "note" => "Locked"},
+      data: %{
+        "name" => "Editable when toggle off",
+        "schema_readonly" => "Always readonly (schema)",
+        "uischema_readonly" => "Always readonly (uischema)"
+      },
       readonly: true
     })
   end
@@ -2116,8 +2406,12 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   defp scenario_config("readonly-precedence") do
     base_config(%{
       schema: readonly_schema(),
-      uischema: readonly_uischema(),
-      data: %{"name" => "Ada", "code" => "READ-ONLY", "note" => "Locked"},
+      uischema: readonly_precedence_uischema(),
+      data: %{
+        "name" => "Editable (toggle is off)",
+        "schema_readonly" => "Still readonly (schema takes precedence)",
+        "uischema_readonly" => "Still readonly (uischema takes precedence)"
+      },
       readonly: false
     })
   end
@@ -2125,7 +2419,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   defp scenario_config("validation") do
     base_config(%{
       schema: demo_schema(),
-      uischema: demo_uischema(),
+      uischema: validation_uischema(),
       data: %{"name" => "", "age" => 32, "subscribed" => true},
       validation_mode: :validate_and_hide,
       additional_errors: [
@@ -2150,6 +2444,25 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
     %{
       "type" => "VerticalLayout",
       "elements" => [
+        %{"type" => "Control", "scope" => "#/properties/name"},
+        %{"type" => "Control", "scope" => "#/properties/age"},
+        %{"type" => "Control", "scope" => "#/properties/subscribed"}
+      ]
+    }
+  end
+
+  defp validation_uischema do
+    %{
+      "type" => "VerticalLayout",
+      "elements" => [
+        %{
+          "type" => "Label",
+          "text" => "Validation modes: Show (display errors), Hide (validate silently), Off"
+        },
+        %{
+          "type" => "Label",
+          "text" => "Additional error injected: 'Name already reserved' (simulates server-side)"
+        },
         %{"type" => "Control", "scope" => "#/properties/name"},
         %{"type" => "Control", "scope" => "#/properties/age"},
         %{"type" => "Control", "scope" => "#/properties/subscribed"}
@@ -2201,7 +2514,7 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
   defp demo_translations("es") do
     %{
       "project.label" => "Detalles del proyecto",
-      "project.schedule.text" => "Horario",
+      "project.schedule" => "Horario",
       "status.label" => "Estado",
       "status.description" => "Estado actual",
       "status.active" => "Activo",
@@ -2214,6 +2527,15 @@ defmodule JsonFormsLvDemoWeb.DemoLive do
       "start_date.label" => "Fecha de inicio",
       "meeting.label" => "Hora de reunion",
       "notes.label" => "Notas"
+    }
+  end
+
+  defp demo_translations("en") do
+    %{
+      "project.schedule" => "Schedule",
+      "priority.1" => "Low",
+      "priority.2" => "Medium",
+      "priority.3" => "High"
     }
   end
 

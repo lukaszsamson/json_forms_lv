@@ -7,7 +7,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
 
   import JsonFormsLV.Phoenix.Components, only: [dispatch: 1]
 
-  alias JsonFormsLV.I18n
+  alias JsonFormsLV.{I18n, Rules}
   alias Phoenix.LiveView.JS
 
   @behaviour JsonFormsLV.Renderer
@@ -20,14 +20,24 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
   def render(assigns) do
     categories = Map.get(assigns.uischema, "elements", [])
     options = Map.get(assigns.uischema, "options", %{})
-    default_index = default_index(options, length(categories))
     state_map = categorization_state(assigns)
-    active_index = active_index(state_map, assigns.render_key, default_index)
     persist_tabs? = is_map(state_map)
+
+    # Compute visibility for each category based on rules
+    visible_categories =
+      categories
+      |> Enum.with_index()
+      |> Enum.filter(fn {category, index} ->
+        category_visible?(category, index, assigns)
+      end)
+
+    default_index = default_visible_index(options, visible_categories)
+    active_index = active_index(state_map, assigns.render_key, default_index, visible_categories)
 
     assigns =
       assigns
       |> assign(:categories, Enum.with_index(categories))
+      |> assign(:visible_categories, visible_categories)
       |> assign(:default_index, default_index)
       |> assign(:active_index, active_index)
       |> assign(:persist_tabs?, persist_tabs?)
@@ -36,7 +46,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
     <%= if @visible? do %>
       <div id={@id} data-jf-layout="categorization" class="jf-layout jf-categorization">
         <div role="tablist" class="jf-categorization-tabs">
-          <%= for {category, index} <- @categories do %>
+          <%= for {category, index} <- @visible_categories do %>
             <button
               id={tab_id(@id, index)}
               type="button"
@@ -44,7 +54,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
               aria-controls={panel_id(@id, index)}
               aria-selected={if index == @active_index, do: "true", else: "false"}
               tabindex={if index == @active_index, do: "0", else: "-1"}
-              phx-click={tab_js(@id, @categories, index, @persist_tabs?, @render_key, @target)}
+              phx-click={tab_js(@id, @visible_categories, index, @persist_tabs?, @render_key, @target)}
               disabled={not @enabled? or @readonly?}
             >
               {category_label(category, index, @i18n, @ctx)}
@@ -52,7 +62,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
           <% end %>
         </div>
         <div class="jf-categorization-panels">
-          <%= for {category, index} <- @categories do %>
+          <%= for {category, index} <- @visible_categories do %>
             <div
               id={panel_id(@id, index)}
               role="tabpanel"
@@ -93,6 +103,15 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
     """
   end
 
+  defp category_visible?(category, index, assigns) do
+    element_path = (assigns.element_path || []) ++ [index]
+    element_key = Rules.element_key(category, element_path)
+    render_key = Rules.render_key(element_key, assigns.path || "")
+    rule_state = assigns.state.rule_state || %{}
+    flags = Map.get(rule_state, render_key, %{visible?: true})
+    Map.get(flags, :visible?, true)
+  end
+
   defp category_label(category, index, i18n, ctx) do
     {label, show_label?} = resolve_label(category)
     label = I18n.translate_label(label, i18n, ctx)
@@ -116,9 +135,11 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
   defp tab_id(base_id, index), do: "#{base_id}-tab-#{index}"
   defp panel_id(base_id, index), do: "#{base_id}-panel-#{index}"
 
-  defp tab_js(base_id, categories, active_index, persist_tabs?, render_key, target) do
-    panel_ids = Enum.map(categories, fn {_category, index} -> panel_id(base_id, index) end)
-    tab_ids = Enum.map(categories, fn {_category, index} -> tab_id(base_id, index) end)
+  defp tab_js(base_id, visible_categories, active_index, persist_tabs?, render_key, target) do
+    panel_ids =
+      Enum.map(visible_categories, fn {_category, index} -> panel_id(base_id, index) end)
+
+    tab_ids = Enum.map(visible_categories, fn {_category, index} -> tab_id(base_id, index) end)
 
     active_panel = panel_id(base_id, active_index)
     active_tab = tab_id(base_id, active_index)
@@ -165,16 +186,35 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
     Map.get(config, :categorization_state) || Map.get(config, "categorization_state")
   end
 
-  defp active_index(state_map, render_key, default_index)
+  defp active_index(state_map, render_key, default_index, visible_categories)
        when is_map(state_map) and is_binary(render_key) do
-    case Map.fetch(state_map, render_key) do
-      {:ok, index} when is_integer(index) -> index
-      {:ok, index} when is_binary(index) -> parse_index(index, default_index)
-      _ -> default_index
+    stored_index =
+      case Map.fetch(state_map, render_key) do
+        {:ok, index} when is_integer(index) -> index
+        {:ok, index} when is_binary(index) -> parse_index(index, nil)
+        _ -> nil
+      end
+
+    # Check if stored index is among visible categories
+    visible_indices = Enum.map(visible_categories, fn {_cat, idx} -> idx end)
+
+    cond do
+      stored_index != nil and stored_index in visible_indices -> stored_index
+      default_index in visible_indices -> default_index
+      visible_indices != [] -> hd(visible_indices)
+      true -> 0
     end
   end
 
-  defp active_index(_state_map, _render_key, default_index), do: default_index
+  defp active_index(_state_map, _render_key, default_index, visible_categories) do
+    visible_indices = Enum.map(visible_categories, fn {_cat, idx} -> idx end)
+
+    cond do
+      default_index in visible_indices -> default_index
+      visible_indices != [] -> hd(visible_indices)
+      true -> 0
+    end
+  end
 
   defp parse_index(value, fallback) do
     case Integer.parse(value) do
@@ -183,10 +223,11 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
     end
   end
 
-  defp default_index(options, total) do
+  defp default_visible_index(options, visible_categories) do
     raw = Map.get(options || %{}, "defaultCategory")
+    visible_indices = Enum.map(visible_categories, fn {_cat, idx} -> idx end)
 
-    index =
+    requested_index =
       cond do
         is_integer(raw) ->
           raw
@@ -202,10 +243,9 @@ defmodule JsonFormsLV.Phoenix.Renderers.Categorization do
       end
 
     cond do
-      total <= 0 -> 0
-      index < 0 -> 0
-      index >= total -> 0
-      true -> index
+      visible_indices == [] -> 0
+      requested_index in visible_indices -> requested_index
+      true -> hd(visible_indices)
     end
   end
 end

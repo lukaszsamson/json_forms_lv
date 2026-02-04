@@ -66,6 +66,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ListWithDetail do
               id={item_dom_id(@id, @item_ids, index)}
               class="jf-list-detail-item"
               open={index == @default_open_index}
+              phx-hook="JFPreserveOpen"
             >
               <summary class="jf-list-detail-summary">
                 <span class="jf-list-detail-label">{@item_labels[index]}</span>
@@ -73,6 +74,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ListWithDetail do
                   <button
                     id={"#{@id}-remove-#{index}"}
                     type="button"
+                    tabindex="0"
                     aria-label={"Remove #{@item_labels[index]}"}
                     phx-click="jf:remove_item"
                     phx-value-path={@path}
@@ -86,6 +88,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ListWithDetail do
                     <button
                       id={"#{@id}-move-up-#{index}"}
                       type="button"
+                      tabindex="0"
                       aria-label={"Move #{@item_labels[index]} up"}
                       phx-click="jf:move_item"
                       phx-value-path={@path}
@@ -99,6 +102,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ListWithDetail do
                     <button
                       id={"#{@id}-move-down-#{index}"}
                       type="button"
+                      tabindex="0"
                       aria-label={"Move #{@item_labels[index]} down"}
                       phx-click="jf:move_item"
                       phx-value-path={@path}
@@ -122,6 +126,7 @@ defmodule JsonFormsLV.Phoenix.Renderers.ListWithDetail do
         <button
           id={"#{@id}-add"}
           type="button"
+          tabindex="0"
           aria-label={if @label, do: "Add #{@label}", else: "Add item"}
           phx-click="jf:add_item"
           phx-value-path={@path}

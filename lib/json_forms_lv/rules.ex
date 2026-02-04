@@ -255,7 +255,13 @@ defmodule JsonFormsLV.Rules do
         valid_schema?(schema, value, validator, opts, cache)
 
       {:error, _} ->
-        {not fail_when_undefined, cache}
+        if fail_when_undefined do
+          # Explicitly fail when value is undefined
+          {false, cache}
+        else
+          # Validate nil against the schema (e.g., nil != "Other" for const check)
+          valid_schema?(schema, nil, validator, opts, cache)
+        end
     end
   end
 

@@ -64,6 +64,7 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumRadio do
             value={option.value}
             checked={option.raw == @selected}
             disabled={@disabled?}
+            tabindex="0"
             lang={@locale}
             aria-describedby={@aria_describedby}
             aria-invalid={@aria_invalid}

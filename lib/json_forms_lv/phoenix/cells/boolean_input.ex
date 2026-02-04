@@ -36,7 +36,7 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
       )
 
     ~H"""
-    <input type="hidden" name={@path} value="false" disabled={@disabled?} />
+    <input type="hidden" name={@path} value="false" disabled={@disabled?} tabindex="-1" />
     <input
       id={@id}
       name={@path}
@@ -44,6 +44,7 @@ defmodule JsonFormsLV.Phoenix.Cells.BooleanInput do
       value="true"
       checked={@checked?}
       disabled={@disabled?}
+      tabindex="0"
       role={@role}
       aria-checked={@aria_checked}
       data-jf-toggle={if @toggle?, do: "true"}

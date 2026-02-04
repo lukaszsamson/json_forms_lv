@@ -11,6 +11,10 @@ defmodule JsonFormsLV.Phoenix.Renderers.CombinatorControl do
   @behaviour JsonFormsLV.Renderer
 
   @impl JsonFormsLV.Renderer
+  # Don't match simple oneOf with type string - let EnumSelect handle it
+  def tester(%{"type" => "Control"}, %{"type" => "string", "oneOf" => _}, _ctx),
+    do: :not_applicable
+
   def tester(%{"type" => "Control"}, %{"oneOf" => one_of}, _ctx) when is_list(one_of), do: 40
   def tester(%{"type" => "Control"}, %{"anyOf" => any_of}, _ctx) when is_list(any_of), do: 40
   def tester(%{"type" => "Control"}, %{"allOf" => all_of}, _ctx) when is_list(all_of), do: 40
@@ -59,31 +63,36 @@ defmodule JsonFormsLV.Phoenix.Renderers.CombinatorControl do
         <% end %>
 
         <%= if @combinator_kind in [:one_of, :any_of] do %>
-          <div class="jf-combinator-select">
-            <select
-              id={"#{@id}-combinator"}
-              name="selection"
-              multiple={@combinator_kind == :any_of}
-              phx-change="jf:select_combinator"
-              phx-target={@target}
-              phx-value-path={@path}
-            >
-              <%= for {option, index} <- Enum.with_index(@combinator_options) do %>
-                <option
-                  value={index}
-                  selected={selected_option?(index, @combinator_selection)}
-                >
-                  {option.label}
-                </option>
-              <% end %>
-            </select>
+          <div class="jf-combinator-tabs" role="tablist">
+            <%= for {option, index} <- Enum.with_index(@combinator_options) do %>
+              <button
+                type="button"
+                role="tab"
+                id={"#{@id}-tab-#{index}"}
+                class={["jf-combinator-tab", selected_option?(index, @combinator_selection) && "jf-combinator-tab--active"]}
+                aria-selected={selected_option?(index, @combinator_selection)}
+                aria-controls={"#{@id}-panel-#{index}"}
+                phx-click="jf:select_combinator"
+                phx-value-path={@path}
+                phx-value-selection={index}
+                phx-value-kind={@combinator_kind}
+                phx-target={@target}
+              >
+                {option.label}
+              </button>
+            <% end %>
           </div>
         <% end %>
 
         <div class="jf-combinator-body">
           <%= for {schema, index} <- Enum.with_index(@combinator_options) do %>
             <%= if render_schema?(index, @combinator_kind, @combinator_selection) do %>
-              <div class="jf-combinator-section">
+              <div
+                class="jf-combinator-section"
+                role={if @combinator_kind in [:one_of, :any_of], do: "tabpanel", else: nil}
+                id={"#{@id}-panel-#{index}"}
+                aria-labelledby={"#{@id}-tab-#{index}"}
+              >
                 <%= if @combinator_kind == :all_of do %>
                   <div class="jf-combinator-heading">{schema.label}</div>
                 <% end %>
@@ -252,28 +261,23 @@ defmodule JsonFormsLV.Phoenix.Renderers.CombinatorControl do
     end
   end
 
+  # anyOf works like oneOf in the UI (single tab), just without clearing data
   defp combinator_selection(assigns, :any_of, option_count) do
     selection = Map.get(assigns.state.combinator_state || %{}, assigns.path)
 
     cond do
-      is_list(selection) and selection != [] ->
-        selection
-
-      option_count > 0 ->
-        [0]
-
-      true ->
-        []
+      is_integer(selection) and selection >= 0 and selection < option_count -> selection
+      option_count > 0 -> 0
+      true -> nil
     end
   end
 
-  defp combinator_selection(_assigns, :all_of, _option_count), do: []
+  defp combinator_selection(_assigns, :all_of, _option_count), do: nil
 
   defp render_schema?(index, :one_of, selection), do: index == selection
-  defp render_schema?(index, :any_of, selection), do: index in selection
+  defp render_schema?(index, :any_of, selection), do: index == selection
   defp render_schema?(_index, :all_of, _selection), do: true
 
-  defp selected_option?(index, selection) when is_list(selection), do: index in selection
   defp selected_option?(index, selection), do: index == selection
 
   defp object_schema?(%{"type" => "object"}), do: true

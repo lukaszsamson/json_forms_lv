@@ -42,15 +42,30 @@ defmodule JsonFormsLV.Phoenix.StreamSync do
 
           if match?(%State{}, old_state) and stream_defined? do
             removed = old_dom_ids -- new_dom_ids
+            added = new_dom_ids -- old_dom_ids
+            # Detect reordering: same items but different order
+            reordered? =
+              removed == [] and added == [] and old_dom_ids != new_dom_ids
 
-            socket =
-              Enum.reduce(removed, socket, fn dom_id, socket ->
-                Phoenix.LiveView.stream_delete(socket, name, %{id: dom_id})
-              end)
+            cond do
+              reordered? ->
+                # When items are reordered, reset stream to apply new order
+                Phoenix.LiveView.stream(socket, name, entries, reset: true)
 
-            Enum.reduce(Enum.with_index(entries), socket, fn {entry, index}, socket ->
-              Phoenix.LiveView.stream_insert(socket, name, entry, at: index)
-            end)
+              removed != [] or added != [] ->
+                # Items added or removed - update incrementally
+                socket =
+                  Enum.reduce(removed, socket, fn dom_id, socket ->
+                    Phoenix.LiveView.stream_delete(socket, name, %{id: dom_id})
+                  end)
+
+                Enum.reduce(Enum.with_index(entries), socket, fn {entry, index}, socket ->
+                  Phoenix.LiveView.stream_insert(socket, name, entry, at: index)
+                end)
+
+              true ->
+                socket
+            end
           else
             Phoenix.LiveView.stream(socket, name, entries, reset: true)
           end

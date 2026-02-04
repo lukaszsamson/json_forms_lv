@@ -149,9 +149,20 @@ defmodule JsonFormsLV.Phoenix.LiveComponent do
 
   def handle_event("jf:select_combinator", %{"path" => path} = params, socket) do
     selection = Map.get(params, "selection") || Map.get(params, "value")
+    kind = Map.get(params, "kind")
+    notify = socket.assigns[:notify]
 
-    {:ok, state} = Engine.set_combinator(socket.assigns.state, path, selection)
-    {:noreply, assign(socket, :state, state)}
+    # For oneOf, clear data when switching tabs; anyOf just switches view without clearing
+    opts = if kind == "one_of", do: %{clear_data: true}, else: %{}
+
+    {:ok, state} = Engine.set_combinator(socket.assigns.state, path, selection, opts)
+
+    socket =
+      socket
+      |> assign(state: state, data: state.data)
+
+    if kind == "one_of", do: notify_change(notify, state)
+    {:noreply, socket}
   end
 
   def handle_event("jf:refresh_enums", params, socket) do

@@ -57,7 +57,7 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
     <input
       id={@id}
       name={@path}
-      type={if @slider?, do: "range", else: "text"}
+      type={if @slider?, do: "range", else: "number"}
       inputmode={@inputmode}
       value={@value}
       placeholder={@placeholder}
@@ -68,6 +68,7 @@ defmodule JsonFormsLV.Phoenix.Cells.NumberInput do
       step={@step}
       lang={@locale}
       disabled={@disabled?}
+      tabindex="0"
       aria-describedby={@aria_describedby}
       aria-invalid={@aria_invalid}
       aria-required={@aria_required}

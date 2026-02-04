@@ -25,11 +25,31 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/json_forms_lv_demo"
 import topbar from "../vendor/topbar"
 
+// Custom hooks for JSON Forms
+const JFPreserveOpen = {
+  mounted() {
+    // Store initial open state
+    this._wasOpen = this.el.hasAttribute('open')
+  },
+  beforeUpdate() {
+    // Capture current open state before LiveView updates
+    this._wasOpen = this.el.hasAttribute('open')
+  },
+  updated() {
+    // Restore open state after LiveView updates
+    if (this._wasOpen) {
+      this.el.setAttribute('open', '')
+    } else {
+      this.el.removeAttribute('open')
+    }
+  }
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: {...colocatedHooks, JFPreserveOpen},
 })
 
 // Show progress bar on live navigation and form submits

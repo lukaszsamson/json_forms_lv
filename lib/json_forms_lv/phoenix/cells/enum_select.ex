@@ -17,6 +17,12 @@ defmodule JsonFormsLV.Phoenix.Cells.EnumSelect do
     20
   end
 
+  # Higher priority than CombinatorControl (40) for simple oneOf with type string
+  def tester(_uischema, %{"type" => "string", "oneOf" => one_of}, _ctx)
+      when is_list(one_of) do
+    41
+  end
+
   def tester(_uischema, %{"oneOf" => one_of} = schema, _ctx)
       when is_list(one_of) and map_size(schema) > 0 do
     19

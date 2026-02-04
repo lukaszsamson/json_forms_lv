@@ -56,7 +56,10 @@ defmodule JsonFormsLV.Engine do
             Map.get(opts_with_limits, :combinator_state) ||
               Map.get(opts_with_limits, "combinator_state") || %{}
 
-          uischema = if uischema == nil, do: UISchema.default(resolved_schema), else: uischema
+          uischema =
+            if uischema == nil or uischema == %{},
+              do: UISchema.default(resolved_schema),
+              else: uischema
 
           with {:ok, uischema} <- uischema_resolver.resolve(uischema, opts_with_limits) do
             state = %State{
@@ -296,15 +299,51 @@ defmodule JsonFormsLV.Engine do
 
   @doc """
   Update combinator selection state for a data path.
+
+  Options:
+    - `:clear_data` - when `true`, clears the data at `data_path` (used for oneOf switching)
   """
-  @spec set_combinator(State.t(), String.t(), term()) :: {:ok, State.t()}
-  def set_combinator(%State{} = state, data_path, selection) when is_binary(data_path) do
+  @spec set_combinator(State.t(), String.t(), term(), map()) :: {:ok, State.t()}
+  def set_combinator(%State{} = state, data_path, selection, opts \\ %{})
+      when is_binary(data_path) do
     selection = normalize_combinator_selection(selection)
+    clear_data? = Map.get(opts, :clear_data, false)
 
     combinator_state =
       Map.put(state.combinator_state || %{}, data_path, selection)
 
-    {:ok, %State{state | combinator_state: combinator_state}}
+    state = %State{state | combinator_state: combinator_state}
+
+    # For oneOf, clear the data at path when switching tabs
+    state =
+      if clear_data? do
+        case Data.put(state.data, data_path, nil) do
+          {:ok, updated_data} ->
+            # Also clear touched state and raw inputs for this path
+            prefix = if data_path == "", do: "", else: data_path <> "."
+
+            touched =
+              state.touched
+              |> Enum.reject(&(&1 == data_path or String.starts_with?(&1, prefix)))
+              |> MapSet.new()
+
+            raw_inputs =
+              state.raw_inputs
+              |> Enum.reject(fn {key, _val} ->
+                key == data_path or String.starts_with?(key, prefix)
+              end)
+              |> Map.new()
+
+            %State{state | data: updated_data, touched: touched, raw_inputs: raw_inputs}
+
+          {:error, _} ->
+            state
+        end
+      else
+        state
+      end
+
+    {:ok, state}
   end
 
   @doc """
