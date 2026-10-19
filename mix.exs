@@ -32,7 +32,6 @@ defmodule JsonFormsLV.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:spec_lint, "~> 0.1", only: [:dev, :test], runtime: false},
       {:phoenix, "~> 1.8.3"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.1.0"},
@@ -41,7 +40,16 @@ defmodule JsonFormsLV.MixProject do
       {:req, "~> 0.5"},
       {:ex_doc, "~> 0.30", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: :dev, runtime: false}
-    ]
+    ] ++ spec_lint_deps()
+  end
+
+  # spec_lint needs Elixir >= 1.18; older CI matrix entries skip it.
+  defp spec_lint_deps do
+    if Version.match?(System.version(), ">= 1.18.0") do
+      [{:spec_lint, "~> 0.1", only: [:dev, :test], runtime: false}]
+    else
+      []
+    end
   end
 
   defp package do
