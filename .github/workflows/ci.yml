@@ -18,12 +18,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - elixir: "1.15"
-            otp: "25"
-          - elixir: "1.15"
-            otp: "26"
           - elixir: "1.16"
-            otp: "25"
+            otp: "26"
           - elixir: "1.17"
             otp: "27"
           - elixir: "1.19"
@@ -163,6 +159,9 @@ jobs:
 
       - name: Install dependencies
         run: mix deps.get
+
+      - name: Compile
+        run: mix compile --warnings-as-errors
 
       - name: Spec lint
         run: mix spec_lint
