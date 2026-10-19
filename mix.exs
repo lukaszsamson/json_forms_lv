@@ -32,6 +32,7 @@ defmodule JsonFormsLV.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:spec_lint, "~> 0.1", only: [:dev, :test], runtime: false},
       {:phoenix, "~> 1.8.3"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.1.0"},
