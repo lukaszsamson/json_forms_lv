@@ -24,7 +24,7 @@ defmodule JsonFormsLV.UISchemaResolver do
       root_base: root_base
     }
 
-    case resolve_node(uischema, ctx, root_base, MapSet.new()) do
+    case resolve_node(uischema, ctx, root_base, %{}) do
       {:ok, resolved, _ctx} -> {:ok, resolved}
       {:error, _} = error -> error
     end
@@ -37,7 +37,7 @@ defmodule JsonFormsLV.UISchemaResolver do
          true <- is_map(resolved) do
       merged = Map.merge(resolved, Map.delete(node, "$ref"))
       base = update_base(merged, base)
-      resolve_node(merged, ctx, base, MapSet.put(seen, ref_key))
+      resolve_node(merged, ctx, base, Map.put(seen, ref_key, true))
     else
       false -> {:error, {:invalid_uischema_ref, ref}}
       {:error, _} = error -> error
@@ -74,7 +74,7 @@ defmodule JsonFormsLV.UISchemaResolver do
 
   defp resolve_ref(ref, ctx, base, seen) do
     with {:ok, {doc_uri, fragment, ref_key}} <- resolve_ref_target(ref, base),
-         false <- MapSet.member?(seen, ref_key) do
+         false <- Map.has_key?(seen, ref_key) do
       case Map.fetch(ctx.id_index, ref_key) do
         {:ok, node} ->
           {:ok, node, ctx, ref_key}
